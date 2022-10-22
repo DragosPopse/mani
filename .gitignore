@@ -1,0 +1,20 @@
+# Ignore everything
+*
+# But descend into directories
+!*/
+
+!.gitignore
+!build.bat
+!run.bat
+!ship.bat
+!ols.bat
+!.vscode
+
+!build-tools/**
+!foreign/**
+!test/**
+
+!/src/**
+
+
+
