@@ -40,8 +40,8 @@ main :: proc() {
                         append(&dirQueue, file.fullpath)
                     } else if filepath.long_ext(file.fullpath) == ".odin" {
                         symbols := gen.parse_symbols(file.fullpath)
-                        // Note(Dragos): I should generate a file per package. Have a map[package]file
-                        gen.generate_lua_exports(config, symbols)
+                        // Note(Dragos): I should generate a file per package. Have a map[package]file0
+                        gen.generate_lua_exports(&config, symbols)
                     }
                 }
             }
@@ -49,5 +49,13 @@ main :: proc() {
         else {
             pop(&dirQueue)
         }
-    }  
+    }
+
+    for pkg, file in config.filenames {
+        sb := &config.builders[pkg]
+        str := strings.to_string(sb^)
+        fd, ok := os.open(file, os.O_CREATE | os.O_WRONLY | os.O_TRUNC)
+        defer os.close(fd)
+        os.write_string(fd, str)
+    }
 }
