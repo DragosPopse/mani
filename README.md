@@ -1,5 +1,5 @@
 # mani
-Mani is an odin-to-lua exporter that generates Lua C API bindings for your odin source files.
+Mani is an odin-to-lua exporter that generates Lua C API bindings for your odin source files. This project is WIP, and doesn't have many features yet. The attributes API is subject to considerable amount of changes
 
 ```odin 
 package main
@@ -27,6 +27,12 @@ main :: proc() {
 res1, res2 = my_nice_fn(3)
 print("Results from Call: " .. res1 .. " " .. res2)
 ```
+
+## Features
+- Global function declarations via `@lua_export = "lua_function_name"`. Functions support multiple parameters and return values.
+- Parameters and results can be all primitive lua types (ints, floats, booleans). There is no support for userdata and lightuserdata yet. 
+- The string support is still WIP due to the fact it requires conversion from `string` to `cstring`. 
+
 ## Usage
 - Install https://github.com/DragosPopse/odin-lua
 - Place the contents of the shared directory in ODIN_ROOT/shared collection
