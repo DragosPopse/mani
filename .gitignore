@@ -10,7 +10,6 @@
 !ols.bat
 !.vscode
 
-!build-tools/**
 !foreign/**
 !test/**
 
