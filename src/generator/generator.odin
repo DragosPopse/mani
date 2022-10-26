@@ -8,20 +8,20 @@ import os "core:os"
 PackageFile :: struct {
     builder: strings.Builder,
     filename: string,
-    imports: map[string]string, // Key: import package name; Value: import text
+    imports: map[string]FileImport, // Key: import package name; Value: import text
 }
 
 package_file_make :: proc(path: string) -> PackageFile {
     return PackageFile {
         builder = strings.builder_make(), 
         filename = path,
-        imports = make(map[string]string),
+        imports = make(map[string]FileImport),
     }
 }
 
 GeneratorConfig :: struct {
     input_directory: string,
-    files: map[string]PackageFile
+    files: map[string]PackageFile,
 }
 
 
@@ -36,19 +36,48 @@ config_package :: proc(config: ^GeneratorConfig, pkg: string, filename: string) 
         filename := strings.concatenate({path, "/", name, ".generated.odin"})
         config.files[pkg] = package_file_make(filename)
         sb := &(&config.files[pkg]).builder
+        file := &config.files[pkg]
 
         write_string(sb, "package ")
         write_string(sb, pkg)
         write_string(sb, "\n\n")
     
-    
-        write_string(sb, "import c \"core:c\"\n")
-        write_string(sb, "import runtime \"core:runtime\"\n")
-        write_string(sb, "import fmt \"core:fmt\"\n")
-        write_string(sb, "import lua \"shared:lua\"\n")
-        write_string(sb, "import luaL \"shared:luaL\"\n")
-        write_string(sb, "import luax \"shared:luax\"\n")
-        write_string(sb, "import mani \"shared:mani\"\n")
+        // Add required imports
+   
+        file.imports["c"] = FileImport {
+            name = "c",
+            text = `import c "core:c"`,
+        }
+        file.imports["fmt"] = FileImport {
+            name = "fmt",
+            text = `import fmt "core:fmt"`,
+        }
+        file.imports["runtime"] = FileImport {
+            name = "runtime",
+            text = `import runtime "core:runtime"`,
+        }
+        file.imports["lua"] = FileImport {
+            name = "lua",
+            text = `import lua "shared:lua"`,
+        }
+        file.imports["luaL"] = FileImport {
+            name = "luaL",
+            text = `import luaL "shared:luaL"`,
+        }
+        file.imports["luax"] = FileImport {
+            name = "luax",
+            text = `import luax "shared:luax"`,
+        }
+        file.imports["mani"] = FileImport {
+            name = "mani",
+            text = `import mani "shared:mani"`,
+        }
+        
+        for _, imp in file.imports {
+            write_string(sb, imp.text)
+            write_string(sb, "\n")
+        }
+        write_string(sb, "\n")
     }
 }
 
@@ -146,10 +175,27 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     
 }
 
+add_import :: proc(file: ^PackageFile, import_statement: FileImport) {
+    if import_statement.name not_in  file.imports {
+        using strings
+        sb := &file.builder
+        write_string(sb, import_statement.text)
+        write_string(sb, "\n")
+        file.imports[import_statement.name] = import_statement
+    }
+}
+
 generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
     using strings
 
+    file := &config.files[exports.symbols_package]
+    
+    for _, imp in exports.imports {
+        add_import(file, imp)
+    }
+
     for exp in exports.symbols {
+        
         switch x in exp {
             case ProcedureExport: {
                 generate_proc_lua_wrapper(config, exports, x, exports.relpath)

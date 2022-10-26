@@ -23,17 +23,22 @@ SymbolExport :: union {
     ProcedureExport,
 }
 
+FileImport :: struct {
+    name: string,
+    text: string,
+}
+
 FileExports :: struct {
     symbols_package: string,
     relpath: string,
     symbols: [dynamic]SymbolExport,
-    imports: map[string]string,
+    imports: map[string]FileImport,
 }
 
 file_exports_make :: proc(allocator := context.allocator) -> FileExports {
     result := FileExports{}
     result.symbols = make([dynamic]SymbolExport, allocator)
-    result.imports = make(map[string]string)
+    result.imports = make(map[string]FileImport)
     return result
 }
 
@@ -101,7 +106,10 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                     importName = split[len(split) - 1]
                     importName = strings.trim(importName, "\"")
                     if importName not_in symbol_exports.imports {
-                        symbol_exports.imports[importName] = importText
+                        symbol_exports.imports[importName] = FileImport {
+                            name = importName,
+                            text = importText,
+                        }
                     }
                    
                 }
