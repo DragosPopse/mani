@@ -40,6 +40,8 @@ print("Results from Call: " .. res1 .. " " .. res2)
 - The output executable accepts a directory as parameter `mani path/to/src`
 - The output of `mani` is a `*.generated.odin` file for each package encountered in the directory and it's subdirectories
 - When initializing the lua state, call `mani.export_all` in order to hook all the code generated to your lua state
+- Build your source with the `-ignore-unkown-attributes` flag
+
 ```odin
 import lua "shared:lua"
 import luaL "shared:luaL"
