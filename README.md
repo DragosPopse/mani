@@ -36,7 +36,7 @@ print("Results from Call: " .. res1 .. " " .. res2)
 ## Usage
 - Install https://github.com/DragosPopse/odin-lua
 - Place the contents of the shared directory in ODIN_ROOT/shared collection
-- Build `generator` directory `odin build generator -ignore-unknown-attributes -out:build/mani.exe`
+- Build `generator` directory `odin build generator -out:build/mani.exe`
 - The output executable accepts a directory as parameter `mani path/to/src`
 - The output of `mani` is a `*.generated.odin` file for each package encountered in the directory and it's subdirectories
 - When initializing the lua state, call `mani.export_all` in order to hook all the code generated to your lua state
