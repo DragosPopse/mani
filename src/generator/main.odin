@@ -1,4 +1,4 @@
-package main
+package generator
 
 import "core:fmt"
 import os "core:os"
@@ -15,14 +15,12 @@ import odin "core:odin"
 import ast "core:odin/ast"
 import parser "core:odin/parser"
 import tokenizer "core:odin/tokenizer"
-import gen "generator"
-
 
 
 main :: proc() {
     using fmt  
     
-    config := gen.create_config_from_args()
+    config := create_config_from_args()
     if !os.is_dir(config.input_directory) {
         fprintf(os.stderr, "Could not open input directory %s\n", config.input_directory)
     }
@@ -38,9 +36,9 @@ main :: proc() {
                     if os.is_dir(file.fullpath) {
                         append(&dirQueue, file.fullpath)
                     } else if filepath.long_ext(file.fullpath) == ".odin" {
-                        symbols := gen.parse_symbols(file.fullpath)
+                        symbols := parse_symbols(file.fullpath)
                         // Note(Dragos): I should generate a file per package. Have a map[package]file0
-                        gen.generate_lua_exports(&config, symbols)
+                        generate_lua_exports(&config, symbols)
                     }
                 }
             }

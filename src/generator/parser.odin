@@ -49,18 +49,16 @@ file_exports_destroy :: proc(obj: ^FileExports) {
 }
 
 parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
-    using fmt
-    
     data, ok := os.read_entire_file(fileName);
     if !ok {
-        fprintf(os.stderr, "Error reading the file\n")
+        fmt.fprintf(os.stderr, "Error reading the file\n")
     }
 
     p := parser.Parser{}
     p.flags += {parser.Flag.Optional_Semicolons}
-    p.err = proc(pos: tokenizer.Pos, fmt: string, args: ..any) {
-        printf(fmt, args)
-        printf("\n")
+    p.err = proc(pos: tokenizer.Pos, format: string, args: ..any) {
+        fmt.printf(format, args)
+        fmt.printf("\n")
     }
      
 
@@ -112,10 +110,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                         }
                     }
                    
-                }
-                fmt.printf("ImportName: %s\n", importName)
-                fmt.printf("Import: %s\n", root.src[x.pos.offset : x.end.offset])
-        
+                }     
             }
         }
 
@@ -174,7 +169,6 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                             }
                             case ^ast.Selector_Expr: {
                                 paramType = root.src[x.pos.offset : x.end.offset] //godlike odin
-                                printf("ParamType: %s\n", paramType)
                             }
                         }
                         
@@ -197,7 +191,6 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                                     resName = rval.names[0].derived.(^ast.Ident).name
                                 }
                                 resType = root.src[x.pos.offset : x.end.offset] //godlike odin
-                                printf("ResType: %s\n", resType)
                             }
                         }
                         if len(rval.names) == 0 || resName == resType {
