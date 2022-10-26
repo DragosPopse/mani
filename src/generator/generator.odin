@@ -88,7 +88,12 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, pkg: string, fn: Pro
 
     // Declare results
     for resultName, i in fn.result_names {
-        write_string(sb, resultName)
+        if resultName == "" {
+            write_string(sb, "mani_result")
+            write_int(sb, i)
+        } else {
+            write_string(sb, resultName)
+        }
         if i < len(fn.result_names) - 1 {
             write_string(sb, ", ")
         }

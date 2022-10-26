@@ -134,13 +134,17 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
 
                     // Get results
                     for rval, i in procType.results.list {
-                        resName : string = ""
-                        // Check if the result actually has a name. Maybe will be useful
-                        if rval.names != nil {
-                            resName = rval.names[0].derived.(^ast.Ident).name
+                        resType := rval.type.derived.(^ast.Ident).name
+                        resName := rval.names[0].derived.(^ast.Ident).name
+                        if resName == resType {
+                            // Result name is not specified
+                            sb := strings.builder_make(context.temp_allocator)
+                            strings.write_string(&sb, "mani_result")
+                            strings.write_int(&sb, i)
+                            resName = strings.to_string(sb)
                         }
                         
-                        resType := rval.type.derived.(^ast.Ident).name
+                        
                         exportProc.result_names[i] = resName
                         exportProc.result_types[i] = resType
                         //printf("(ResultName : ResultType) -> (%s, %s)\n", resName, resType)
