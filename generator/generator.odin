@@ -86,11 +86,9 @@ create_config_from_args :: proc() -> (result: GeneratorConfig) {
     result = GeneratorConfig{}
     for arg in os.args {
         pair := strings.split(arg, ":", context.temp_allocator)
-        switch pair[0] {
-            case "-in-dir": {
-                assert(len(pair) == 2)
-                result.input_directory = pair[1]
-            }
+        if len(pair) == 1 {
+            // Input directory
+            result.input_directory = pair[0]
         }
     }
     return
