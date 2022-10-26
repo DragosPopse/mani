@@ -28,7 +28,6 @@ main :: proc() {
     }
 
     dirQueue := make([dynamic]string)
-    defer delete(dirQueue)
     append(&dirQueue, config.input_directory)
     for len(dirQueue) > 0 {
         idx := len(dirQueue) - 1
@@ -50,11 +49,13 @@ main :: proc() {
             pop(&dirQueue)
         }
     }
+    delete(dirQueue)
 
-    for pkg, file in config.filenames {
-        sb := &config.builders[pkg]
+
+    for pkg, file in &config.files {
+        sb := &file.builder
         str := strings.to_string(sb^)
-        fd, ok := os.open(file, os.O_CREATE | os.O_WRONLY | os.O_TRUNC)
+        fd, ok := os.open(file.filename, os.O_CREATE | os.O_WRONLY | os.O_TRUNC)
         defer os.close(fd)
         os.write_string(fd, str)
     }

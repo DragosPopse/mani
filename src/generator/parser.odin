@@ -27,11 +27,13 @@ FileExports :: struct {
     symbols_package: string,
     relpath: string,
     symbols: [dynamic]SymbolExport,
+    imports: map[string]string,
 }
 
 file_exports_make :: proc(allocator := context.allocator) -> FileExports {
     result := FileExports{}
     result.symbols = make([dynamic]SymbolExport, allocator)
+    result.imports = make(map[string]string)
     return result
 }
 
@@ -69,7 +71,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
     }
 
     root := p.file
-
+    
     // Note(Dragos): memory leaks around everywhere
     symbol_exports = file_exports_make()
     abspath, succ := filepath.abs(".")
@@ -78,6 +80,37 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
     symbol_exports.relpath, _ = filepath.to_slash(symbol_exports.relpath)
     symbol_exports.symbols_package = root.pkg_name
     for x in root.decls {
+        #partial switch x in x.derived {
+            case ^ast.Import_Decl: {
+                importName: string
+                importText := root.src[x.pos.offset : x.end.offset]
+                if x.name.kind != .Invalid {
+                    // got a name
+                    importName = x.name.text
+                } else {
+                    // Take the name from the path
+                    startPos := 0
+                    for c, i in x.fullpath {
+                        if c == ':' {
+                            startPos = i + 1
+                            break
+                        }
+                    }
+                    // Note(Dragos): Even more memory leaks I don't care
+                    split := strings.split(x.fullpath[startPos:], "/")
+                    importName = split[len(split) - 1]
+                    importName = strings.trim(importName, "\"")
+                    if importName not_in symbol_exports.imports {
+                        symbol_exports.imports[importName] = importText
+                    }
+                   
+                }
+                fmt.printf("ImportName: %s\n", importName)
+                fmt.printf("Import: %s\n", root.src[x.pos.offset : x.end.offset])
+        
+            }
+        }
+
         if decl, ok := x.derived.(^ast.Value_Decl); ok {
             if len(decl.attributes) < 1 do continue // No attributes here, move on
 
@@ -124,8 +157,18 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
 
                     // Get parameters
                     for param, i in procType.params.list {
+                        paramType: string
                         paramName := param.names[0].derived.(^ast.Ident).name
-                        paramType := param.type.derived.(^ast.Ident).name
+                     
+                        #partial switch x in param.type.derived {
+                            case ^ast.Ident: {
+                                paramType = x.name
+                            }
+                            case ^ast.Selector_Expr: {
+                                paramType = root.src[x.pos.offset : x.end.offset] //godlike odin
+                                printf("ParamType: %s\n", paramType)
+                            }
+                        }
                         
                         exportProc.param_names[i] = paramName
                         exportProc.param_types[i] = paramType
@@ -134,9 +177,22 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
 
                     // Get results
                     for rval, i in procType.results.list {
-                        resType := rval.type.derived.(^ast.Ident).name
-                        resName := rval.names[0].derived.(^ast.Ident).name
-                        if resName == resType {
+                        resName: string
+                        resType: string
+                        #partial switch x in rval.type.derived {
+                            case ^ast.Ident: {
+                                resType = x.name
+                                resName = rval.names[0].derived.(^ast.Ident).name
+                            }
+                            case ^ast.Selector_Expr: {
+                                if len(rval.names) != 0 {
+                                    resName = rval.names[0].derived.(^ast.Ident).name
+                                }
+                                resType = root.src[x.pos.offset : x.end.offset] //godlike odin
+                                printf("ResType: %s\n", resType)
+                            }
+                        }
+                        if len(rval.names) == 0 || resName == resType {
                             // Result name is not specified
                             sb := strings.builder_make(context.temp_allocator)
                             strings.write_string(&sb, "mani_result")
@@ -199,3 +255,4 @@ print_symbol :: proc(symbol: SymbolExport) {
         }
     }
 }
+

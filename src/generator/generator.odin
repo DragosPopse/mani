@@ -5,39 +5,50 @@ import fmt "core:fmt"
 import filepath "core:path/filepath"
 import os "core:os"
 
+PackageFile :: struct {
+    builder: strings.Builder,
+    filename: string,
+    imports: map[string]string, // Key: import package name; Value: import text
+}
 
+package_file_make :: proc(path: string) -> PackageFile {
+    return PackageFile {
+        builder = strings.builder_make(), 
+        filename = path,
+        imports = make(map[string]string),
+    }
+}
 
 GeneratorConfig :: struct {
     input_directory: string,
-    builders: map[string]strings.Builder,
-    filenames: map[string]string,
+    files: map[string]PackageFile
 }
 
 
 config_package :: proc(config: ^GeneratorConfig, pkg: string, filename: string) {
-    result, ok := config.builders[pkg]
+    result, ok := &config.files[pkg]
     if !ok {
         using strings
-        // First file with package definition, initialize it
-        config.builders[pkg] = strings.builder_make()
-        builder := &config.builders[pkg]
+
+        
         path := filepath.dir(filename, context.temp_allocator)
         name := filepath.stem(filename)
-        config.filenames[pkg] = strings.concatenate({path, "/", name, ".generated.odin"})
+        filename := strings.concatenate({path, "/", name, ".generated.odin"})
+        config.files[pkg] = package_file_make(filename)
+        sb := &(&config.files[pkg]).builder
 
-
-        write_string(builder, "package ")
-        write_string(builder, pkg)
-        write_string(builder, "\n\n")
+        write_string(sb, "package ")
+        write_string(sb, pkg)
+        write_string(sb, "\n\n")
     
     
-        write_string(builder, "import c \"core:c\"\n")
-        write_string(builder, "import runtime \"core:runtime\"\n")
-        write_string(builder, "import fmt \"core:fmt\"\n")
-        write_string(builder, "import lua \"shared:lua\"\n")
-        write_string(builder, "import luaL \"shared:luaL\"\n")
-        write_string(builder, "import luax \"shared:luax\"\n")
-        write_string(builder, "import mani \"shared:mani\"\n")
+        write_string(sb, "import c \"core:c\"\n")
+        write_string(sb, "import runtime \"core:runtime\"\n")
+        write_string(sb, "import fmt \"core:fmt\"\n")
+        write_string(sb, "import lua \"shared:lua\"\n")
+        write_string(sb, "import luaL \"shared:luaL\"\n")
+        write_string(sb, "import luax \"shared:luax\"\n")
+        write_string(sb, "import mani \"shared:mani\"\n")
     }
 }
 
@@ -56,11 +67,11 @@ create_config_from_args :: proc() -> (result: GeneratorConfig) {
     return
 }
 
-generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, pkg: string, fn: ProcedureExport, filename: string) {
+generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport, filename: string) {
     using strings
     fn_name := strings.concatenate({fn.name, "_mani"}, context.temp_allocator)
-    config_package(config, pkg, filename)
-    sb := &config.builders[pkg]
+    config_package(config, exports.symbols_package, filename)
+    sb := &(&config.files[exports.symbols_package]).builder
     //Add the function to the init body
 
 
@@ -88,12 +99,9 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, pkg: string, fn: Pro
 
     // Declare results
     for resultName, i in fn.result_names {
-        if resultName == "" {
-            write_string(sb, "mani_result")
-            write_int(sb, i)
-        } else {
-            write_string(sb, resultName)
-        }
+     
+        write_string(sb, resultName)
+        
         if i < len(fn.result_names) - 1 {
             write_string(sb, ", ")
         }
@@ -141,20 +149,10 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, pkg: string, fn: Pro
 generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
     using strings
 
-    sb := builder_make()
-    exports_dir := filepath.dir(exports.relpath)
-    exp_abspath, _  := filepath.abs(exports.relpath)
-
-    exports_dir, _ = filepath.to_slash(exports_dir)
-
-
-
-
     for exp in exports.symbols {
         switch x in exp {
             case ProcedureExport: {
-                generate_proc_lua_wrapper(config, exports.symbols_package, x, exports.relpath)
-                write_string(&sb, "\n")
+                generate_proc_lua_wrapper(config, exports, x, exports.relpath)
             }
         }
     }
