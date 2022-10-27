@@ -9,6 +9,10 @@ PackageFile :: struct {
     builder: strings.Builder,
     filename: string,
     imports: map[string]FileImport, // Key: import package name; Value: import text
+
+    // Lua LSP metadata
+    lua_filename: string,
+    lua_builder: strings.Builder,
 }
 
 package_file_make :: proc(path: string) -> PackageFile {
@@ -174,7 +178,7 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
 }
 
 add_import :: proc(file: ^PackageFile, import_statement: FileImport) {
-    if import_statement.name not_in  file.imports {
+    if import_statement.name not_in file.imports {
         using strings
         sb := &file.builder
         write_string(sb, import_statement.text)

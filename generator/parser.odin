@@ -7,6 +7,8 @@ import parser "core:odin/parser"
 import tokenizer "core:odin/tokenizer"
 import strings "core:strings"
 import filepath "core:path/filepath"
+import "core:log"
+import "../shared/mani"
 
 ProcedureExport :: struct {
     name: string,
@@ -49,6 +51,9 @@ file_exports_destroy :: proc(obj: ^FileExports) {
 }
 
 parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
+    context.logger = mani.create_generator_logger(log.Level.Debug)
+    defer mani.destroy_generator_logger(context.logger)
+
     data, ok := os.read_entire_file(fileName);
     if !ok {
         fmt.fprintf(os.stderr, "Error reading the file\n")
@@ -162,13 +167,21 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                     for param, i in procType.params.list {
                         paramType: string
                         paramName := param.names[0].derived.(^ast.Ident).name
-                     
+                    
                         #partial switch x in param.type.derived {
                             case ^ast.Ident: {
                                 paramType = x.name
                             }
                             case ^ast.Selector_Expr: {
                                 paramType = root.src[x.pos.offset : x.end.offset] //godlike odin
+                            }
+                            case ^ast.Pointer_Type: {
+                                
+                                paramType = root.src[x.pos.offset : x.end.offset]
+                                
+                                mani.temp_logger_token(context.logger.data, paramType, x.pos.file, x.pos.line)
+                                
+                                log.errorf("Pointer parameter type not supported")
                             }
                         }
                         
@@ -233,6 +246,10 @@ get_attr_elem :: proc(elem: ^ast.Expr) -> (name: string, value: string) {
         }
     }
     return
+}
+
+is_pointer_type :: proc(token: string) -> bool {
+    return token[0] == '^'
 }
 
 print_symbol :: proc(symbol: SymbolExport) {
