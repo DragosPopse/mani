@@ -1,5 +1,6 @@
 package mani
 import "core:odin/tokenizer"
+import "core:odin/ast"
 import "core:runtime"
 import "core:log"
 import "core:os"
@@ -16,8 +17,7 @@ LevelHeaders := [?]string{
 }
 
 GeneratorLoggerData :: struct {
-    file: string,
-    line: int,
+    node: ^ast.Node,
     token: string,
 }
 
@@ -50,16 +50,15 @@ destroy_generator_logger :: proc(logger: log.Logger)  {
 }
 
 @(deferred_out = temp_logger_token_exit)
-temp_logger_token :: proc(logger_data: rawptr, token: string, file: string, line: int) -> ^GeneratorLoggerData {
+temp_logger_token :: proc(logger_data: rawptr, node: ^ast.Node, token: string) -> ^GeneratorLoggerData {
     data := cast(^GeneratorLoggerData)logger_data
+    data.node = node
     data.token = token
-    data.file = file
-    data.line = line
     return data
 }
 
 temp_logger_token_exit :: proc(data: ^GeneratorLoggerData) {
-    data.token = ""
+    data.node = nil
 }
 
 generator_logger_proc :: proc(logger_data: rawptr, level: log.Level, text: string, options: log.Options, location := #caller_location) {
@@ -102,7 +101,7 @@ do_generator_header :: proc(opts: log.Options, level: log.Level, data: ^Generato
 		}
 	}
 
-    if data.token != "" {
-        fmt.sbprintf(str, "[%s(%d): `%s`]", data.file, data.line, data.token)
+    if data.node != nil {
+        fmt.sbprintf(str, "[%s(%d): `%s`]", data.node.pos.file, data.node.pos.line, data.token)
     }
 }

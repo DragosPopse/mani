@@ -162,7 +162,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                             //printf("(Attribute : Value) -> (%s : %s)\n", attrName, attrVal)
                         }   
                     }
-
+                    
                     // Get parameters
                     for param, i in procType.params.list {
                         paramType: string
@@ -179,7 +179,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                                 
                                 paramType = root.src[x.pos.offset : x.end.offset]
                                 
-                                mani.temp_logger_token(context.logger.data, paramType, x.pos.file, x.pos.line)
+                                mani.temp_logger_token(context.logger.data, x, paramType)
                                 
                                 log.errorf("Pointer parameter type not supported")
                             }
