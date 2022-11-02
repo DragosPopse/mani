@@ -7,7 +7,7 @@
 !build.bat
 !run.bat
 !ship.bat
-!ols.bat
+!ols.json
 !.vscode
 
 !foreign/**

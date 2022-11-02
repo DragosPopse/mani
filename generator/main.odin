@@ -15,6 +15,7 @@ import odin "core:odin"
 import ast "core:odin/ast"
 import parser "core:odin/parser"
 import tokenizer "core:odin/tokenizer"
+import "core:mem"
 import "core:log"
 
 
@@ -53,7 +54,7 @@ main :: proc() {
     }
     delete(dirQueue)
 
-
+    
     for pkg, file in &config.files {
         sb := &file.builder
         str := strings.to_string(sb^)
