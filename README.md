@@ -9,7 +9,7 @@ import "shared:lua"
 import "shared:luaL"
 import "shared:mani"
 
-@(lua_export = "my_nice_fn")
+@(LuaExport, Name = "my_nice_fn")
 test :: proc(var: int) -> (result1: int, result2: int) {
     fmt.printf("Lua: Var is %d\n", var)
     result1 = 60 + var
@@ -49,35 +49,5 @@ import mani "shared:mani"
 main :: proc() {
     L := luaL.newstate()
     mani.export_all(L, mani.global_state)
-}
-```
-
-### Details
-  - Below is the generated package file produced from the code above 
-```odin
-import c "core:c"
-import runtime "core:runtime"
-import fmt "core:fmt"
-import lua "shared:lua"
-import luaL "shared:luaL"
-import luax "shared:luax"
-import mani "shared:mani"
-test_mani :: proc "c" (L: ^lua.State) -> c.int {
-    context = runtime.default_context()
-
-    var: int
-    
-    luax.get(L, 1, &var)
-    result1, result2 := test(var)
-
-    luax.push(L, result1)
-    luax.push(L, result2)
-    
-    return 2
-}
-
-@(init)
-test_mani_init :: proc() {
-    mani.add_function(test_mani, "my_nice_fn")
 }
 ```
