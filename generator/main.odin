@@ -1,4 +1,4 @@
-package generator
+package mani_generator
 
 import "core:fmt"
 import os "core:os"

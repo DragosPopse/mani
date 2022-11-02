@@ -1,4 +1,4 @@
-package generator
+package mani_generator
 
 import strings "core:strings"
 import fmt "core:fmt"
@@ -170,7 +170,7 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     write_string(sb, "mani.add_function(")
     write_string(sb, fn_name)
     write_string(sb, ", \"")
-    write_string(sb, fn.lua_name)
+    write_string(sb, fn.properties["Name"].value if "Name" in fn.properties else fn.name)
     write_string(sb, "\"")
     write_string(sb, ")\n}\n\n")
     

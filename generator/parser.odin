@@ -10,15 +10,27 @@ import filepath "core:path/filepath"
 import "core:log"
 import "../shared/mani"
 
-ProcedureExport :: struct {
+LUA_ATTRIBUTES := map[string]typeid {
+    "Name" = string,
+}
+
+
+Property :: struct {
     name: string,
-    lua_name: string,
+    value: string,
+}
+
+NodeExport :: struct {
+    properties: map[string]Property,
+}
+
+ProcedureExport :: struct {
+    using base: NodeExport,
+    name: string,
     result_types: []string,
     result_names: []string,
     param_types: []string,
     param_names: []string,
-    attrib_names: []string,
-    attrib_values: []string,
 }
 
 SymbolExport :: union {
@@ -133,34 +145,40 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                     //printf("DeclName: %s\n", declName)
 
                     // Put single and multi attributes the same slice (multiple @ vs comma separated)
+                    // Revision: only check for "LuaExport" attributes
                     nAttribs := 0
                     for attr in decl.attributes {
                         nAttribs += len(attr.elems)
                     }
                     nParams := len(procType.params.list)
                     nResults := len(procType.results.list)
-                    exportProc.name = declName
+                    exportProc.name = declName 
 
                     // Note(Dragos): these should be checked for 0
+                    exportProc.properties = make(map[string]Property)
                     exportProc.param_names = make([]string, nParams)
                     exportProc.param_types = make([]string, nParams)
                     exportProc.result_names = make([]string, nResults)
                     exportProc.result_types = make([]string, nResults)
-                    exportProc.attrib_names = make([]string, nAttribs)
-                    exportProc.attrib_values = make([]string, nAttribs)
 
                     // Get attributes
                     for attr, i in decl.attributes {
-                        for x, j in attr.elems {
-                            attrName, attrVal := get_attr_elem(x)
-                            if attrName == "lua_export" {
-                                exportProc.lua_name = attrVal
+                        if name, _ := get_attr_elem(attr.elems[0]); name == "LuaExport" {
+                            // Parse the LuaExport attributes
+                            for x, j in attr.elems[1:] { // 0 is already checked, we skip
+                                attrName, attrVal := get_attr_elem(x)
+                                if attrName in LUA_ATTRIBUTES {
+                                    exportProc.properties[attrName] = Property {
+                                        name = attrName,
+                                        value = attrVal,
+                                    }
+                                } else {
+                                    mani.temp_logger_token(context.logger.data, x, attrName)
+                                    log.errorf("Found unknown attribute for LuaExport")
+                                }
                             }
-                            attrIndex := i * len(decl.attributes) + j
-                            exportProc.attrib_names[attrIndex] = attrName
-                            exportProc.attrib_values[attrIndex] = attrVal
-                            //printf("(Attribute : Value) -> (%s : %s)\n", attrName, attrVal)
-                        }   
+                        } 
+                        
                     }
                     
                     // Get parameters
@@ -258,10 +276,6 @@ print_symbol :: proc(symbol: SymbolExport) {
     switch s in symbol {
         case ProcedureExport: {
             printf("ProcName: %s\n", s.name)
-
-            for name, i in s.attrib_names {
-                printf("(AttribName : AttribValue) -> (%s, %s)\n", name, s.attrib_values[i])
-            }
 
             for name, i in s.param_names {
                 printf("(ParamName : ParamType) -> (%s, %s)\n", name, s.param_types[i])
