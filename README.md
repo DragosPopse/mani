@@ -29,7 +29,7 @@ print("Results from Call: " .. res1 .. " " .. res2)
 ```
 
 ## Features
-- Global function declarations via `@lua_export = "lua_function_name"`. Functions support multiple parameters and return values.
+- Global function declarations via `@LuaExport`. Functions support multiple parameters and return values.
 - Parameters and results can be all primitive lua types (ints, floats, booleans). There is no support for userdata and lightuserdata yet. 
 - The string support is still WIP due to the fact it requires conversion from `string` to `cstring`. 
 
