@@ -10,7 +10,11 @@ import filepath "core:path/filepath"
 import "core:log"
 import "../shared/mani"
 
-LUA_ATTRIBUTES := map[string]typeid {
+LUA_PROC_ATTRIBUTES := map[string]typeid {
+    "Name" = string,
+}
+
+LUA_STRUCT_ATTRIBUTES := map[string]typeid {
     "Name" = string,
 }
 
@@ -52,7 +56,7 @@ FileExports :: struct {
 file_exports_make :: proc(allocator := context.allocator) -> FileExports {
     result := FileExports{}
     result.symbols = make([dynamic]SymbolExport, allocator)
-    result.imports = make(map[string]FileImport)
+    result.imports = make(map[string]FileImport, 128, allocator)
     return result
 }
 
@@ -60,6 +64,7 @@ file_exports_destroy :: proc(obj: ^FileExports) {
     // Note(Dragos): Taken from string builder, shouldn't it be reversed?
     delete(obj.symbols)
     clear(&obj.symbols)
+    
 }
 
 parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
@@ -144,12 +149,6 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                     exportProc := ProcedureExport{}
                     //printf("DeclName: %s\n", declName)
 
-                    // Put single and multi attributes the same slice (multiple @ vs comma separated)
-                    // Revision: only check for "LuaExport" attributes
-                    nAttribs := 0
-                    for attr in decl.attributes {
-                        nAttribs += len(attr.elems)
-                    }
                     nParams := len(procType.params.list)
                     nResults := len(procType.results.list)
                     exportProc.name = declName 
@@ -167,7 +166,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                             // Parse the LuaExport attributes
                             for x, j in attr.elems[1:] { // 0 is already checked, we skip
                                 attrName, attrVal := get_attr_elem(x)
-                                if attrName in LUA_ATTRIBUTES {
+                                if attrName in LUA_PROC_ATTRIBUTES {
                                     exportProc.properties[attrName] = Property {
                                         name = attrName,
                                         value = attrVal,
