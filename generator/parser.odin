@@ -16,6 +16,8 @@ LUA_PROC_ATTRIBUTES := map[string]typeid {
 
 LUA_STRUCT_ATTRIBUTES := map[string]typeid {
     "Name" = string,
+    "AllowRef" = nil,
+    "AllowCopy" = nil,
 }
 
 
@@ -139,110 +141,113 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
         if decl, ok := x.derived.(^ast.Value_Decl); ok {
             if len(decl.attributes) < 1 do continue // No attributes here, move on
 
-            // Get the identifier
-            declName := decl.names[0].derived.(^ast.Ident).name
-            exportResult : SymbolExport
             #partial switch v in decl.values[0].derived {
                 case ^ast.Proc_Lit: {
-                    // Get the type
-                    procType := v.type
-                    exportProc := ProcedureExport{}
-                    //printf("DeclName: %s\n", declName)
-
-                    nParams := len(procType.params.list)
-                    nResults := len(procType.results.list)
-                    exportProc.name = declName 
-
-                    // Note(Dragos): these should be checked for 0
-                    exportProc.properties = make(map[string]Property)
-                    exportProc.param_names = make([]string, nParams)
-                    exportProc.param_types = make([]string, nParams)
-                    exportProc.result_names = make([]string, nResults)
-                    exportProc.result_types = make([]string, nResults)
-
-                    // Get attributes
-                    for attr, i in decl.attributes {
-                        if name, _ := get_attr_elem(attr.elems[0]); name == "LuaExport" {
-                            // Parse the LuaExport attributes
-                            for x, j in attr.elems[1:] { // 0 is already checked, we skip
-                                attrName, attrVal := get_attr_elem(x)
-                                if attrName in LUA_PROC_ATTRIBUTES {
-                                    exportProc.properties[attrName] = Property {
-                                        name = attrName,
-                                        value = attrVal,
-                                    }
-                                } else {
-                                    mani.temp_logger_token(context.logger.data, x, attrName)
-                                    log.errorf("Found unknown attribute for LuaExport")
-                                }
-                            }
-                        } 
-                        
-                    }
-                    
-                    // Get parameters
-                    for param, i in procType.params.list {
-                        paramType: string
-                        paramName := param.names[0].derived.(^ast.Ident).name
-                    
-                        #partial switch x in param.type.derived {
-                            case ^ast.Ident: {
-                                paramType = x.name
-                            }
-                            case ^ast.Selector_Expr: {
-                                paramType = root.src[x.pos.offset : x.end.offset] //godlike odin
-                            }
-                            case ^ast.Pointer_Type: {
-                                
-                                paramType = root.src[x.pos.offset : x.end.offset]
-                                
-                                mani.temp_logger_token(context.logger.data, x, paramType)
-                                
-                                log.errorf("Pointer parameter type not supported")
-                            }
-                        }
-                        
-                        exportProc.param_names[i] = paramName
-                        exportProc.param_types[i] = paramType
-                        
-                    }
-
-                    // Get results
-                    for rval, i in procType.results.list {
-                        resName: string
-                        resType: string
-                        #partial switch x in rval.type.derived {
-                            case ^ast.Ident: {
-                                resType = x.name
-                                resName = rval.names[0].derived.(^ast.Ident).name
-                            }
-                            case ^ast.Selector_Expr: {
-                                if len(rval.names) != 0 {
-                                    resName = rval.names[0].derived.(^ast.Ident).name
-                                }
-                                resType = root.src[x.pos.offset : x.end.offset] //godlike odin
-                            }
-                        }
-                        if len(rval.names) == 0 || resName == resType {
-                            // Result name is not specified
-                            sb := strings.builder_make(context.temp_allocator)
-                            strings.write_string(&sb, "mani_result")
-                            strings.write_int(&sb, i)
-                            resName = strings.to_string(sb)
-                        }
-                        
-                        
-                        exportProc.result_names[i] = resName
-                        exportProc.result_types[i] = resType
-                        //printf("(ResultName : ResultType) -> (%s, %s)\n", resName, resType)
-                    }
-
+                    exportProc := parse_proc(root, decl, v)
                     append(&symbol_exports.symbols, exportProc) // Add the function to the results
                 }
             }
 
          
         }
+    }
+
+    return
+}
+
+parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.Proc_Lit, allocator := context.allocator) -> (result: ProcedureExport) {
+    v := proc_lit
+    procType := v.type
+    declName := value_decl.names[0].derived.(^ast.Ident).name // Note(Dragos): Does this work with 'a, b: int' ?????
+
+    nParams := len(procType.params.list)
+    nResults := len(procType.results.list)
+    result.name = declName 
+
+    // Note(Dragos): these should be checked for 0
+    result.properties = make(map[string]Property)
+    result.param_names = make([]string, nParams)
+    result.param_types = make([]string, nParams)
+    result.result_names = make([]string, nResults)
+    result.result_types = make([]string, nResults)
+
+    // Get attributes
+    for attr, i in value_decl.attributes {
+        switch name, _ := get_attr_elem(attr.elems[0]); name {
+            case "LuaExport": {
+                // Parse the LuaExport attributes
+                for x, j in attr.elems[1:] { // 0 is already checked, we skip
+                    attrName, attrVal := get_attr_elem(x)
+                    if attrName in LUA_PROC_ATTRIBUTES {
+                        result.properties[attrName] = Property {
+                            name = attrName,
+                            value = attrVal,
+                        }
+                    } else {
+                        mani.temp_logger_token(context.logger.data, x, attrName)
+                        log.errorf("Found unknown attribute for LuaExport")
+                    }
+                }
+            }
+
+        } 
+        
+    }
+    
+    // Get parameters
+    for param, i in procType.params.list {
+        paramType: string
+        paramName := param.names[0].derived.(^ast.Ident).name
+    
+        #partial switch x in param.type.derived {
+            case ^ast.Ident: {
+                paramType = x.name
+            }
+            case ^ast.Selector_Expr: {
+                paramType = root.src[x.pos.offset : x.end.offset] //godlike odin
+            }
+            case ^ast.Pointer_Type: {
+                
+                paramType = root.src[x.pos.offset : x.end.offset]
+                
+                mani.temp_logger_token(context.logger.data, x, paramType)
+                
+                log.errorf("Pointer parameter type not supported")
+            }
+        }
+        
+        result.param_names[i] = paramName
+        result.param_types[i] = paramType
+        
+    }
+
+    // Get results
+    for rval, i in procType.results.list {
+        resName: string
+        resType: string
+        #partial switch x in rval.type.derived {
+            case ^ast.Ident: {
+                resType = x.name
+                resName = rval.names[0].derived.(^ast.Ident).name
+            }
+            case ^ast.Selector_Expr: {
+                if len(rval.names) != 0 {
+                    resName = rval.names[0].derived.(^ast.Ident).name
+                }
+                resType = root.src[x.pos.offset : x.end.offset] //godlike odin
+            }
+        }
+        if len(rval.names) == 0 || resName == resType {
+            // Result name is not specified
+            sb := strings.builder_make(context.temp_allocator)
+            strings.write_string(&sb, "mani_result")
+            strings.write_int(&sb, i)
+            resName = strings.to_string(sb)
+        }
+        
+        
+        result.result_names[i] = resName
+        result.result_types[i] = resType
     }
 
     return
