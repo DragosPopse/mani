@@ -20,14 +20,30 @@ LUA_STRUCT_ATTRIBUTES := map[string]typeid {
     "AllowCopy" = nil,
 }
 
+LUAEXPORT_STR :: "LuaExport"
+LUAFIELDS_STR :: "LuaFields"
 
 Property :: struct {
     name: string,
     value: string,
 }
 
+PropertyMap :: distinct map[string]Property
+PropertyCollection :: distinct map[string]PropertyMap
+
 NodeExport :: struct {
-    properties: map[string]Property,
+    properties: PropertyCollection,
+}
+
+StructField :: struct {
+    odin_name: string,
+    type: string,
+}
+
+StructExport :: struct {
+    using base: NodeExport,
+    name: string,
+    fields: map[string]StructField, // Key: odin_name
 }
 
 ProcedureExport :: struct {
@@ -41,6 +57,7 @@ ProcedureExport :: struct {
 
 SymbolExport :: union {
     ProcedureExport,
+    StructExport,
 }
 
 FileImport :: struct {
@@ -146,6 +163,13 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                     exportProc := parse_proc(root, decl, v)
                     append(&symbol_exports.symbols, exportProc) // Add the function to the results
                 }
+
+                case ^ast.Struct_Type: {
+                    exportStruct, err := parse_struct(root, decl, v) 
+                    if err == .OkExport {
+                        append(&symbol_exports.symbols, exportStruct)
+                    }
+                }
             }
 
          
@@ -153,6 +177,65 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
     }
 
     return
+}
+
+parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: ^ast.Struct_Type, allocator := context.allocator) -> (result: StructExport, err: ParseErr) {
+    result.properties, err = parse_properties(value_decl, allocator)
+    switch err {
+        case .OkNoExport, .MissingLuaExport, .UnknownProperty: return
+
+        case .OkExport: {
+            result.name = value_decl.names[0].derived.(^ast.Ident).name
+            result.fields = make(map[string]StructField) 
+        }
+    }
+    return
+}
+
+
+ParseErr :: enum {
+    OkNoExport,
+    OkExport,
+    MissingLuaExport, 
+    UnknownProperty,
+}
+
+parse_properties :: proc(value_decl: ^ast.Value_Decl, allocator := context.allocator) -> (collection: PropertyCollection, err: ParseErr) {
+    err = .OkNoExport
+    collection = nil
+    collectionName: string = "" 
+    collectionAllowedProperties: map[string]typeid
+    for attr, i in value_decl.attributes {
+        switch name, _ := get_attr_elem(attr.elems[0]); name {
+            case LUAEXPORT_STR, LUAFIELDS_STR: {
+                collectionName = name
+            }
+        } 
+
+        if collection == nil {
+            collection = make(PropertyCollection)
+        }
+        if collectionName not_in collection {
+            collection[collectionName] = make(PropertyMap)
+        }
+
+        properties := &collection[collectionName]
+        
+        for x, j in attr.elems[1:] { // 0 is already checked, we skip
+            attrName, attrVal := get_attr_elem(x)
+            if attrName in LUA_STRUCT_ATTRIBUTES || attrName in LUA_PROC_ATTRIBUTES {
+                properties[attrName] = Property {
+                    name = attrName,
+                    value = attrVal,
+                }
+            } else {
+                mani.temp_logger_token(context.logger.data, x, attrName)
+                log.errorf("Found unknown attribute for %s", collectionName)
+            }
+        }
+        
+    }
+    return 
 }
 
 parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.Proc_Lit, allocator := context.allocator) -> (result: ProcedureExport) {
@@ -165,35 +248,11 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
     result.name = declName 
 
     // Note(Dragos): these should be checked for 0
-    result.properties = make(map[string]Property)
     result.param_names = make([]string, nParams)
     result.param_types = make([]string, nParams)
     result.result_names = make([]string, nResults)
     result.result_types = make([]string, nResults)
 
-    // Get attributes
-    for attr, i in value_decl.attributes {
-        switch name, _ := get_attr_elem(attr.elems[0]); name {
-            case "LuaExport": {
-                // Parse the LuaExport attributes
-                for x, j in attr.elems[1:] { // 0 is already checked, we skip
-                    attrName, attrVal := get_attr_elem(x)
-                    if attrName in LUA_PROC_ATTRIBUTES {
-                        result.properties[attrName] = Property {
-                            name = attrName,
-                            value = attrVal,
-                        }
-                    } else {
-                        mani.temp_logger_token(context.logger.data, x, attrName)
-                        log.errorf("Found unknown attribute for LuaExport")
-                    }
-                }
-            }
-
-        } 
-        
-    }
-    
     // Get parameters
     for param, i in procType.params.list {
         paramType: string
@@ -274,21 +333,4 @@ is_pointer_type :: proc(token: string) -> bool {
     return token[0] == '^'
 }
 
-print_symbol :: proc(symbol: SymbolExport) {
-    using fmt
-    
-    switch s in symbol {
-        case ProcedureExport: {
-            printf("ProcName: %s\n", s.name)
-
-            for name, i in s.param_names {
-                printf("(ParamName : ParamType) -> (%s, %s)\n", name, s.param_types[i])
-            }
-
-            for name, i in s.result_names {
-                printf("(ResultName : ResultTypes) -> (%s, %s)\n", name, s.result_types[i])
-            }
-        }
-    }
-}
 

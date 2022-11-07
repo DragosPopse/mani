@@ -170,7 +170,7 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     write_string(sb, "mani.add_function(")
     write_string(sb, fn_name)
     write_string(sb, ", \"")
-    write_string(sb, fn.properties["Name"].value if "Name" in fn.properties else fn.name)
+    write_string(sb, fn.properties[LUAEXPORT_STR]["Name"].value if "Name" in fn.properties else fn.name)
     write_string(sb, "\"")
     write_string(sb, ")\n}\n\n")
     
@@ -201,6 +201,10 @@ generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
         switch x in exp {
             case ProcedureExport: {
                 generate_proc_lua_wrapper(config, exports, x, exports.relpath)
+            }
+
+            case StructExport: {
+                fmt.printf("Structs coming soon\n") 
             }
         }
     }
