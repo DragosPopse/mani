@@ -9,15 +9,33 @@ import strings "core:strings"
 import filepath "core:path/filepath"
 import "core:log"
 import "../shared/mani"
+import "core:reflect"
 
-LUA_PROC_ATTRIBUTES := map[string]typeid {
-    "Name" = string,
+LUA_PROC_ATTRIBUTES := map[string]bool {
+    "Name" = true,
 }
 
 LUA_STRUCT_ATTRIBUTES := map[string]typeid {
     "Name" = string,
     "AllowRef" = nil,
     "AllowCopy" = nil,
+}
+
+ALLOWED_PROPERTIES := map[typeid]map[string]map[string]bool {
+    ^ast.Proc_Lit = {
+        "LuaExport" = {
+            "Name" = true,
+        },
+    },
+
+    ^ast.Struct_Type = {
+        "LuaExport" = {
+            "Name" = true,
+            "AllowRef" = true,
+            "AllowCopy" = true,
+        },
+        "LuaFields" = nil,
+    },
 }
 
 LUAEXPORT_STR :: "LuaExport"
@@ -157,15 +175,20 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
 
         if decl, ok := x.derived.(^ast.Value_Decl); ok {
             if len(decl.attributes) < 1 do continue // No attributes here, move on
-
+            // Note(Dragos): Should this be called in the parse_proc/parse_struct?
+            properties, propErr := parse_properties(root, decl) // Todo(Dragos): Memory leaks when erroring
+            if propErr != .OkExport do continue
+            
             #partial switch v in decl.values[0].derived {
                 case ^ast.Proc_Lit: {
                     exportProc := parse_proc(root, decl, v)
+                    exportProc.properties = properties
                     append(&symbol_exports.symbols, exportProc) // Add the function to the results
                 }
 
                 case ^ast.Struct_Type: {
                     exportStruct, err := parse_struct(root, decl, v) 
+                    exportStruct.properties = properties
                     if err == .OkExport {
                         append(&symbol_exports.symbols, exportStruct)
                     }
@@ -180,7 +203,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
 }
 
 parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: ^ast.Struct_Type, allocator := context.allocator) -> (result: StructExport, err: ParseErr) {
-    result.properties, err = parse_properties(value_decl, allocator)
+    result.properties, err = parse_properties(root, value_decl, allocator)
     switch err {
         case .OkNoExport, .MissingLuaExport, .UnknownProperty: return
 
@@ -200,37 +223,41 @@ ParseErr :: enum {
     UnknownProperty,
 }
 
-parse_properties :: proc(value_decl: ^ast.Value_Decl, allocator := context.allocator) -> (collection: PropertyCollection, err: ParseErr) {
+parse_properties :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, allocator := context.allocator) -> (collection: PropertyCollection, err: ParseErr) {
     err = .OkNoExport
     collection = nil
-    collectionName: string = "" 
-    collectionAllowedProperties: map[string]typeid
+
+    valueType := reflect.union_variant_type_info(value_decl.values[0].derived)
+    if valueType.id not_in ALLOWED_PROPERTIES {
+        return nil, .OkNoExport
+    }
+
+    allowedPrefixes := ALLOWED_PROPERTIES[valueType.id]
+
     for attr, i in value_decl.attributes {
-        switch name, _ := get_attr_elem(attr.elems[0]); name {
-            case LUAEXPORT_STR, LUAFIELDS_STR: {
-                collectionName = name
-            }
-        } 
+        prefixName, _ := get_attr_elem(root, attr.elems[0])
+        if prefixName not_in allowedPrefixes do continue
 
         if collection == nil {
             collection = make(PropertyCollection)
         }
-        if collectionName not_in collection {
-            collection[collectionName] = make(PropertyMap)
+        if prefixName not_in collection {
+            collection[prefixName] = make(PropertyMap)
         }
 
-        properties := &collection[collectionName]
+        properties := &collection[prefixName]
+        allowedProperties := allowedPrefixes[prefixName]
         
         for x, j in attr.elems[1:] { // 0 is already checked, we skip
-            attrName, attrVal := get_attr_elem(x)
-            if attrName in LUA_STRUCT_ATTRIBUTES || attrName in LUA_PROC_ATTRIBUTES {
+            attrName, attrVal := get_attr_elem(root, x)
+            if allowedProperties == nil || attrName in allowedProperties {
                 properties[attrName] = Property {
                     name = attrName,
                     value = attrVal,
                 }
             } else {
                 mani.temp_logger_token(context.logger.data, x, attrName)
-                log.errorf("Found unknown attribute for %s", collectionName)
+                log.errorf("Found unknown attribute for %s prefix", prefixName)
             }
         }
         
@@ -313,13 +340,21 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
 }
 
 
-get_attr_elem :: proc(elem: ^ast.Expr) -> (name: string, value: string) {
+get_attr_elem :: proc(root: ^ast.File, elem: ^ast.Expr) -> (name: string, value: string) {
     #partial switch x in elem.derived  {
         case ^ast.Field_Value: {
             attr := x.field.derived.(^ast.Ident)
-            attrVal := x.value.derived.(^ast.Basic_Lit) 
+            
+            #partial switch v in x.value.derived {
+                case ^ast.Basic_Lit: {
+                    value = strings.trim(v.tok.text, "\"")
+                }
+
+                case ^ast.Ident: {
+                    value = root.src[v.pos.offset : v.end.offset]
+                }
+            }
             name = attr.name
-            value = strings.trim(attrVal.tok.text, "\"")
         }
 
         case ^ast.Ident: {
