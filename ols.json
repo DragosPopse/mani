@@ -1,7 +1,13 @@
 {
-    "checker_args": "-ignore-unknown-attributes",
-    "enable_semantic_tokens": true,
-    "enable_document_symbols": true,
-    "enable_hover": true,
-    "enable_snippets": true
-  }
+  "collections": [
+    {
+      "name": "shared",
+      "path": "../vendor/odin/shared"
+    }
+  ],
+  "checker_args": "-ignore-unknown-attributes",
+  "enable_semantic_tokens": true,
+  "enable_document_symbols": true,
+  "enable_hover": true,
+  "enable_snippets": true
+}

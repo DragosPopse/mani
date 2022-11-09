@@ -67,6 +67,7 @@ StructExport :: struct {
 ProcedureExport :: struct {
     using base: NodeExport,
     name: string,
+    calling_convention: string,
     result_types: []string,
     result_names: []string,
     param_types: []string,
@@ -141,7 +142,9 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
     symbol_exports.relpath, err = filepath.rel(abspath, fileName)
     symbol_exports.relpath, _ = filepath.to_slash(symbol_exports.relpath)
     symbol_exports.symbols_package = root.pkg_name
+    
     for x in root.decls {
+        
         #partial switch x in x.derived {
             case ^ast.Import_Decl: {
                 importName: string
@@ -181,7 +184,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
             
             #partial switch v in decl.values[0].derived {
                 case ^ast.Proc_Lit: {
-                    exportProc := parse_proc(root, decl, v)
+                    exportProc, err := parse_proc(root, decl, v)
                     exportProc.properties = properties
                     append(&symbol_exports.symbols, exportProc) // Add the function to the results
                 }
@@ -202,18 +205,6 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
     return
 }
 
-parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: ^ast.Struct_Type, allocator := context.allocator) -> (result: StructExport, err: ParseErr) {
-    result.properties, err = parse_properties(root, value_decl, allocator)
-    switch err {
-        case .OkNoExport, .MissingLuaExport, .UnknownProperty: return
-
-        case .OkExport: {
-            result.name = value_decl.names[0].derived.(^ast.Ident).name
-            result.fields = make(map[string]StructField) 
-        }
-    }
-    return
-}
 
 
 ParseErr :: enum {
@@ -258,84 +249,154 @@ parse_properties :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, allocator
             } else {
                 mani.temp_logger_token(context.logger.data, x, attrName)
                 log.errorf("Found unknown attribute for %s prefix", prefixName)
+                err = .UnknownProperty
+                return
             }
         }
         
     }
+    err = .OkExport
     return 
 }
 
-parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.Proc_Lit, allocator := context.allocator) -> (result: ProcedureExport) {
+parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: ^ast.Struct_Type, allocator := context.allocator) -> (result: StructExport, err: ParseErr) {
+    result.properties, err = parse_properties(root, value_decl, allocator)
+    if err != .OkExport do return
+  
+    result.name = value_decl.names[0].derived.(^ast.Ident).name
+    result.fields = make(map[string]StructField) 
+    
+    for field in struct_decl.fields.list {
+        fName := field.names[0].derived.(^ast.Ident).name 
+        fType: string
+        #partial switch x in field.type.derived {
+            case ^ast.Ident: {
+                fType = x.name
+            }
+            case ^ast.Selector_Expr: { // What was this again?
+                fType = root.src[x.pos.offset : x.end.offset] //godlike odin
+            }
+            case ^ast.Pointer_Type: {
+                fType = root.src[x.pos.offset : x.end.offset]
+            }
+        }
+
+        result.fields[fName] = StructField {
+            odin_name = fName,
+            type = fType,
+        }
+    }
+
+    // Check if LuaFields match
+    for fieldName, _ in result.properties[LUAFIELDS_STR] {
+        if fieldName not_in result.fields {
+            mani.temp_logger_token(context.logger.data, value_decl, fieldName)  
+            log.errorf("Found unknown field in LuaFields. Make sure they match the struct!")
+            err = .UnknownProperty
+            return
+        }
+    }
+    err = .OkExport
+    return
+}
+
+
+parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.Proc_Lit, allocator := context.allocator) -> (result: ProcedureExport, err: ParseErr) {
+ 
+    result.properties, err = parse_properties(root, value_decl)
+    if err != .OkExport do return
     v := proc_lit
     procType := v.type
     declName := value_decl.names[0].derived.(^ast.Ident).name // Note(Dragos): Does this work with 'a, b: int' ?????
-
-    nParams := len(procType.params.list)
-    nResults := len(procType.results.list)
+    
     result.name = declName 
+    switch conv in procType.calling_convention {
+        case string: {
+            result.calling_convention = conv
+        }
 
+        case ast.Proc_Calling_Convention_Extra: {
+            result.calling_convention = "c" //not fully correct
+        }
+
+        case: { // nil, default calling convention
+            result.calling_convention = "odin"
+        }
+    }
     // Note(Dragos): these should be checked for 0
-    result.param_names = make([]string, nParams)
-    result.param_types = make([]string, nParams)
-    result.result_names = make([]string, nResults)
-    result.result_types = make([]string, nResults)
+    
+    
 
     // Get parameters
-    for param, i in procType.params.list {
-        paramType: string
-        paramName := param.names[0].derived.(^ast.Ident).name
-    
-        #partial switch x in param.type.derived {
-            case ^ast.Ident: {
-                paramType = x.name
+    if procType.params != nil {
+        nParams := len(procType.params.list)
+        result.param_names = make([]string, nParams)
+        result.param_types = make([]string, nParams)
+        for param, i in procType.params.list {
+            paramType: string
+            paramName := param.names[0].derived.(^ast.Ident).name
+        
+            #partial switch x in param.type.derived {
+                case ^ast.Ident: {
+                    paramType = x.name
+                }
+                case ^ast.Selector_Expr: {
+                    paramType = root.src[x.pos.offset : x.end.offset] //godlike odin
+                }
+                case ^ast.Pointer_Type: {
+                    
+                    paramType = root.src[x.pos.offset : x.end.offset]
+                    
+                    mani.temp_logger_token(context.logger.data, x, paramType)
+                    
+                    log.errorf("Pointer parameter type not supported")
+                }
             }
-            case ^ast.Selector_Expr: {
-                paramType = root.src[x.pos.offset : x.end.offset] //godlike odin
-            }
-            case ^ast.Pointer_Type: {
-                
-                paramType = root.src[x.pos.offset : x.end.offset]
-                
-                mani.temp_logger_token(context.logger.data, x, paramType)
-                
-                log.errorf("Pointer parameter type not supported")
-            }
+            
+            result.param_names[i] = paramName
+            result.param_types[i] = paramType
+            
         }
-        
-        result.param_names[i] = paramName
-        result.param_types[i] = paramType
-        
     }
-
+    
     // Get results
-    for rval, i in procType.results.list {
-        resName: string
-        resType: string
-        #partial switch x in rval.type.derived {
-            case ^ast.Ident: {
-                resType = x.name
-                resName = rval.names[0].derived.(^ast.Ident).name
-            }
-            case ^ast.Selector_Expr: {
-                if len(rval.names) != 0 {
+    if procType.results != nil {
+        nResults := len(procType.results.list)
+        result.result_names = make([]string, nResults)
+        result.result_types = make([]string, nResults)
+    
+        for rval, i in procType.results.list {
+            resName: string
+            resType: string
+            #partial switch x in rval.type.derived {
+                case ^ast.Ident: {
+                    resType = x.name
                     resName = rval.names[0].derived.(^ast.Ident).name
                 }
-                resType = root.src[x.pos.offset : x.end.offset] //godlike odin
+                case ^ast.Selector_Expr: {
+                    if len(rval.names) != 0 {
+                        resName = rval.names[0].derived.(^ast.Ident).name
+                    }
+                    resType = root.src[x.pos.offset : x.end.offset] //godlike odin
+                }
             }
+            if len(rval.names) == 0 || resName == resType {
+                // Result name is not specified
+                sb := strings.builder_make(context.temp_allocator)
+                strings.write_string(&sb, "mani_result")
+                strings.write_int(&sb, i)
+                resName = strings.to_string(sb)
+            }
+            
+            
+            result.result_names[i] = resName
+            result.result_types[i] = resType
         }
-        if len(rval.names) == 0 || resName == resType {
-            // Result name is not specified
-            sb := strings.builder_make(context.temp_allocator)
-            strings.write_string(&sb, "mani_result")
-            strings.write_int(&sb, i)
-            resName = strings.to_string(sb)
-        }
-        
-        
-        result.result_names[i] = resName
-        result.result_types[i] = resType
     }
 
+    
+    
+    err = .OkExport
     return
 }
 
@@ -364,7 +425,7 @@ get_attr_elem :: proc(root: ^ast.File, elem: ^ast.Expr) -> (name: string, value:
     return
 }
 
-is_pointer_type :: proc(token: string) -> bool {
+is_pointer_type  :: #force_inline proc(token: string) -> bool {
     return token[0] == '^'
 }
 

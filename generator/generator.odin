@@ -101,15 +101,17 @@ create_config_from_args :: proc() -> (result: GeneratorConfig) {
 
 generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport, filename: string) {
     using strings
-    fn_name := strings.concatenate({fn.name, "_mani"}, context.temp_allocator)
-    config_package(config, exports.symbols_package, filename)
+    fn_name := strings.concatenate({"_mani_", fn.name}, context.temp_allocator)
+    
     sb := &(&config.files[exports.symbols_package]).builder
     //Add the function to the init body
 
 
     write_string(sb, fn_name)
     write_string(sb, " :: proc \"c\" (L: ^lua.State) -> c.int {\n    ")
-    write_string(sb, "context = runtime.default_context()\n\n    ")
+    if fn.calling_convention == "odin" {
+        write_string(sb, "context = mani.default_context()\n\n    ")
+    }
     // Declare parameters
     for paramType, i in fn.param_types {
         write_string(sb, fn.param_names[i])
@@ -121,25 +123,29 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     write_string(sb, "\n    ")
 
     //Get parameters from lua
-    for paramName, i in fn.param_names {
-        write_string(sb, "luax.get(L, ") // Note(Dragos): This needs to be replaced
-        write_int(sb, i + 1)
-        write_string(sb, ", &")
-        write_string(sb, paramName)
-        write_string(sb, ")\n    ")
-    }
-
-    // Declare results
-    for resultName, i in fn.result_names {
-     
-        write_string(sb, resultName)
-        
-        if i < len(fn.result_names) - 1 {
-            write_string(sb, ", ")
+    if fn.param_names != nil {
+        for paramName, i in fn.param_names {
+            write_string(sb, "luax.get(L, ") // Note(Dragos): This needs to be replaced
+            write_int(sb, i + 1)
+            write_string(sb, ", &")
+            write_string(sb, paramName)
+            write_string(sb, ")\n    ")
         }
     }
-    write_string(sb, " := ")
+    
 
+    // Declare results
+    if fn.result_names != nil {
+        for resultName, i in fn.result_names {
+     
+            write_string(sb, resultName)
+            
+            if i < len(fn.result_names) - 1 {
+                write_string(sb, ", ")
+            }
+        }
+        write_string(sb, " := ")
+    }
     write_string(sb, fn.name)
     write_string(sb, "(")
     // Pass parameters to odin function
@@ -159,21 +165,47 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     write_string(sb, "\n    ")
 
     write_string(sb, "return ")
-    write_int(sb, len(fn.result_types))
+    write_int(sb, len(fn.result_types) if fn.result_types != nil else 0)
     write_string(sb, "\n")
     write_string(sb, "}\n")
 
     // Generate @init function to bind to mani
+
     write_string(sb, "\n")
     write_string(sb, "@(init)\n")
     write_string(sb, fn_name)
     write_string(sb, "_init :: proc() {\n    ")
-    write_string(sb, "mani.add_function(")
-    write_string(sb, fn_name)
-    write_string(sb, ", \"")
+    write_string(sb, "fn: mani.ProcExport\n    ")
+
+    write_string(sb, "fn.pkg = ")
+    write_string(sb, exports.symbols_package)
+    write_string(sb, "\n    ")
+
+    write_string(sb, "fn.odin_name = ")
+    write_rune(sb, '"')
+    write_string(sb, fn.name)
+    write_rune(sb, '"')
+    write_string(sb, "\n    ")
+
+    write_string(sb, "fn.lua_name = ")
+    write_rune(sb, '"')
     write_string(sb, fn.properties[LUAEXPORT_STR]["Name"].value if "Name" in fn.properties else fn.name)
-    write_string(sb, "\"")
-    write_string(sb, ")\n}\n\n")
+    write_rune(sb, '"')
+    write_string(sb, "\n    ")
+    
+    write_string(sb, "fn.mani_name = ")
+    write_rune(sb, '"')
+    write_string(sb, fn_name)
+    write_rune(sb, '"')
+    write_string(sb, "\n    ")
+
+    write_string(sb, "fn.lua_proc = ")
+    write_string(sb, fn_name)
+    write_string(sb, "\n    ")
+
+    write_string(sb, "mani.add_function(fn)\n")
+
+    write_string(sb, "}\n\n")
     
     
 }
@@ -190,7 +222,7 @@ add_import :: proc(file: ^PackageFile, import_statement: FileImport) {
 
 generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
     using strings
-
+    config_package(config, exports.symbols_package, exports.relpath)
     file := &config.files[exports.symbols_package]
     
     for _, imp in exports.imports {

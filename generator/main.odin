@@ -21,7 +21,6 @@ import "core:log"
 
 main :: proc() {
     using fmt  
-    
     context.logger = log.create_console_logger(.Debug, log.Options{.Terminal_Color, .Level, .Line, .Procedure})
     defer log.destroy_console_logger(context.logger)
 
@@ -54,7 +53,6 @@ main :: proc() {
     }
     delete(dirQueue)
 
-    
     for pkg, file in &config.files {
         sb := &file.builder
         str := strings.to_string(sb^)
@@ -62,4 +60,24 @@ main :: proc() {
         defer os.close(fd)
         os.write_string(fd, str)
     }
+    //testing()
 }
+
+/*
+import "shared:lua"
+import "shared:luaL"
+import "../shared/mani"
+testing :: proc() {
+    fmt.printf("bruh\n")
+    L: ^lua.State
+    S :: struct {
+        v: int,
+    }
+    s := S{}
+    s.v = 3
+    val: int
+    ptr: ^int
+    mani.to_value(L, -1, &val)
+    mani.to_value(L, -1, &ptr)
+
+}*/
