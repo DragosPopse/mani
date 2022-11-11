@@ -99,6 +99,391 @@ create_config_from_args :: proc() -> (result: GeneratorConfig) {
     return
 }
 
+generate_struct_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, s: StructExport, filename: string) {
+    using strings 
+    sb := &(&config.files[exports.symbols_package]).builder
+    write_lua_index(sb, exports, s)
+    write_lua_newindex(sb, exports, s)
+    write_lua_struct_init(sb, exports, s)
+}
+
+write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
+    using strings
+    allowRef := "AllowRef" in s.properties[LUAEXPORT_STR]
+    allowCopy := "AllowCopy" in s.properties[LUAEXPORT_STR]
+
+    write_string(sb, "@(init)\n")
+    write_string(sb, "_mani_init_")
+    write_string(sb, s.name)
+    write_string(sb, " :: proc() {\n    ")
+
+    write_string(sb, "expStruct: mani.StructExport")
+    write_string(sb, "\n    ")
+    write_string(sb, "expStruct.pkg = ")
+    write_rune(sb, '"')
+    write_string(sb, exports.symbols_package)
+    write_rune(sb, '"')
+    write_string(sb, "\n    ")
+
+    write_string(sb, "expStruct.odin_name = ")
+    write_rune(sb, '"')
+    write_string(sb, s.name)
+    write_rune(sb, '"')
+    write_string(sb, "\n    ")
+
+    write_string(sb, "expStruct.lua_name = ")
+    write_rune(sb, '"')
+    write_string(sb, s.properties[LUAEXPORT_STR]["Name"].value if "Name" in s.properties else s.name)
+    write_rune(sb, '"')
+    write_string(sb, "\n    ")
+
+    write_string(sb, "expStruct.type = ")
+    write_string(sb, s.name)
+    write_string(sb, "\n    ")
+
+    if allowRef {
+        write_string(sb, "\n    ")
+        write_string(sb, "refMeta: mani.MetatableData\n    ")
+        write_string(sb, "refMeta.name = ")
+        write_rune(sb, '"')
+        write_string(sb, s.name)
+        write_string(sb, "_ref")
+        write_rune(sb, '"')
+        write_string(sb, "\n    ")
+
+        write_string(sb, "refMeta.odin_type = ")
+        write_rune(sb, '^')
+        write_string(sb, s.name)
+        write_string(sb, "\n    ")
+
+        write_string(sb, "refMeta.index = ")
+        write_string(sb, "_mani_index_")
+        write_string(sb, s.name)
+        write_string(sb, "_ref")
+        write_string(sb, "\n    ")
+
+        write_string(sb, "refMeta.newindex = ")
+        write_string(sb, "_mani_newindex_")
+        write_string(sb, s.name)
+        write_string(sb, "_ref")
+        write_string(sb, "\n    ")
+
+        write_string(sb, "expStruct.ref_meta = refMeta")
+        write_string(sb, "\n    ")
+    }
+
+    if allowCopy {
+        write_string(sb, "\n    ")
+        write_string(sb, "copyMeta: mani.MetatableData\n    ")
+        write_string(sb, "copyMeta.name = ")
+        write_rune(sb, '"')
+        write_string(sb, s.name)
+        write_rune(sb, '"')
+        write_string(sb, "\n    ")
+
+        write_string(sb, "copyMeta.odin_type = ")
+        write_string(sb, s.name)
+        write_string(sb, "\n    ")
+
+        write_string(sb, "copyMeta.index = ")
+        write_string(sb, "_mani_index_")
+        write_string(sb, s.name)
+        write_string(sb, "\n    ")
+
+        write_string(sb, "copyMeta.newindex = ")
+        write_string(sb, "_mani_newindex_")
+        write_string(sb, s.name)
+        write_string(sb, "\n    ")
+
+        write_string(sb, "expStruct.copy_meta = copyMeta")
+        write_string(sb, "\n    ")
+        write_string(sb, "\n    ")
+
+    }
+
+    //exportAll := "All" in s.properties[LUAEXPORT_STR]
+    
+
+    // Note(Dragos): Not the coolest API imo
+    // Yep this doesn't work quite well. Should figure out more things
+    if LUAFIELDS_STR in s.properties {
+        for k, v in s.properties[LUAFIELDS_STR] {
+            luaName: string
+            if v.value == "" {
+                luaName = v.name
+            } else {
+                luaName = v.value
+            }
+            
+            write_string(sb, "expStruct.fields[")
+            write_rune(sb, '"')
+            write_string(sb, luaName)
+            write_rune(sb, '"')
+            write_string(sb, "] = mani.StructFieldExport { ")
+            write_string(sb, "lua_name = ")
+            write_rune(sb, '"')
+            write_string(sb, luaName)
+            write_rune(sb, '"')
+            write_string(sb, ", odin_name = ")
+            write_rune(sb, '"')
+            write_string(sb, v.name)
+            write_rune(sb, '"')
+            write_string(sb, ", type = ")
+            write_string(sb, s.fields[k].type)
+            write_string(sb, " }\n    ")
+        }
+    } else { // Export all
+        for k, field in s.fields {
+            write_string(sb, "expStruct.fields[")
+            write_rune(sb, '"')
+            write_string(sb, field.odin_name)
+            write_rune(sb, '"')
+            write_string(sb, "] = mani.StructFieldExport { ")
+            write_string(sb, "lua_name = ")
+            write_rune(sb, '"')
+            write_string(sb, field.odin_name)
+            write_rune(sb, '"')
+            write_string(sb, ", odin_name = ")
+            write_rune(sb, '"')
+            write_string(sb, field.odin_name)
+            write_rune(sb, '"')
+            write_string(sb, ", type = ")
+            write_string(sb, field.type)
+            write_string(sb, " }\n    ")
+        }
+    }
+    
+    write_string(sb, "mani.add_struct(expStruct)")
+    write_string(sb, "\n}\n\n")
+}
+
+write_lua_newstruct :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
+    
+}
+
+write_lua_index :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
+    using strings
+    allowRef := "AllowRef" in s.properties[LUAEXPORT_STR]
+    allowCopy := "AllowCopy" in s.properties[LUAEXPORT_STR]
+
+    if allowCopy {
+        //write_string(sb, "_mani_index_")
+        //write_string(sb, s.name)
+        //write_string(sb, " :: proc(L: ^lua.State) {\n    ")
+        //write_string(sb, "udata := ")
+        fmt.sbprintf(sb, 
+`
+_mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
+    context = mani.default_context()
+    udata := cast(^{1:s})luaL.checkudata(L, 1, "{0:s}")
+    key := lua.tostring(L, 2)
+    switch key {{
+        case: {{
+            lua.pushnil(L)
+            return 1
+        }}
+`       , s.name, s.name)
+        for k, field in s.fields {
+            fieldsRename, ok := s.properties[LUAFIELDS_STR]
+            shouldExport := false
+            name: string
+            if ok {
+                if luaName, ok := fieldsRename[field.odin_name]; ok {
+                    name = luaName.value
+                    shouldExport = true
+                } else {
+                    shouldExport = false
+                }
+            } else {
+                name = field.odin_name 
+                shouldExport = true
+            }
+
+            if shouldExport {
+                fmt.sbprintf(sb, 
+`        
+        case "{0:s}": {{
+            mani.push_value(L, udata.{1:s})
+            return 1
+        }}
+`,    name, field.odin_name)
+            }
+        }
+
+        fmt.sbprintf(sb, 
+`
+    }}
+    return 1
+}}
+
+`       )
+    }
+
+    if allowRef {
+        //write_string(sb, "_mani_index_")
+        //write_string(sb, s.name)
+        //write_string(sb, " :: proc(L: ^lua.State) {\n    ")
+        //write_string(sb, "udata := ")
+        fmt.sbprintf(sb, 
+`
+_mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
+    context = mani.default_context()
+    udata := cast(^^{1:s})luaL.checkudata(L, 1, "{0:s}")
+    key := lua.tostring(L, 2)
+    switch key {{
+        case: {{
+            lua.pushnil(L)
+            return 1
+        }}
+`       , s.name, s.name)
+        for k, field in s.fields {
+            fieldsRename, ok := s.properties[LUAFIELDS_STR]
+            shouldExport := false
+            name: string
+            if ok {
+                if luaName, ok := fieldsRename[field.odin_name]; ok {
+                    name = luaName.value
+                    shouldExport = true
+                } else {
+                    shouldExport = false
+                }
+            } else {
+                name = field.odin_name 
+                shouldExport = true
+            }
+
+            if shouldExport {
+                fmt.sbprintf(sb, 
+`        
+        case "{0:s}": {{
+            mani.push_value(L, udata^.{1:s})
+            return 1
+        }}
+`,    name, field.odin_name)
+            }
+        }
+
+        fmt.sbprintf(sb, 
+`
+    }}
+    return 1
+}}
+
+`       )
+    }
+    
+}
+
+write_lua_newindex :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
+    using strings
+    allowRef := "AllowRef" in s.properties[LUAEXPORT_STR]
+    allowCopy := "AllowCopy" in s.properties[LUAEXPORT_STR]
+
+    if allowCopy {
+        //write_string(sb, "_mani_index_")
+        //write_string(sb, s.name)
+        //write_string(sb, " :: proc(L: ^lua.State) {\n    ")
+        //write_string(sb, "udata := ")
+        fmt.sbprintf(sb, 
+`
+_mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
+    context = mani.default_context()
+    udata := cast(^{1:s})luaL.checkudata(L, 1, "{0:s}")
+    key := lua.tostring(L, 2)
+    switch key {{
+        case: {{
+            // Throw an error here
+            return 0
+        }}
+`       , s.name, s.name)
+        for k, field in s.fields {
+            fieldsRename, ok := s.properties[LUAFIELDS_STR]
+            shouldExport := false
+            name: string
+            if ok {
+                if luaName, ok := fieldsRename[field.odin_name]; ok {
+                    name = luaName.value
+                    shouldExport = true
+                } else {
+                    shouldExport = false
+                }
+            } else {
+                name = field.odin_name 
+                shouldExport = true
+            }
+
+            if shouldExport {
+                fmt.sbprintf(sb, 
+`        
+        case "{0:s}": {{
+            mani.to_value(L, 3, &udata.{1:s})
+            return 0
+        }}
+`,    name, field.odin_name)
+            }
+        }
+
+        fmt.sbprintf(sb, 
+`
+    }}
+    return 0
+}}
+
+`       )
+    }
+
+    if allowRef {
+        //write_string(sb, "_mani_index_")
+        //write_string(sb, s.name)
+        //write_string(sb, " :: proc(L: ^lua.State) {\n    ")
+        //write_string(sb, "udata := ")
+        fmt.sbprintf(sb, 
+`
+_mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
+    context = mani.default_context()
+    udata := cast(^^{1:s})luaL.checkudata(L, 1, "{0:s}")
+    key := lua.tostring(L, 2)
+    switch key {{
+        case: {{
+            lua.pushnil(L)
+        }}
+`       , s.name, s.name)
+        for k, field in s.fields {
+            fieldsRename, ok := s.properties[LUAFIELDS_STR]
+            shouldExport := false
+            name: string
+            if ok {
+                if luaName, ok := fieldsRename[field.odin_name]; ok {
+                    name = luaName.value
+                    shouldExport = true
+                } else {
+                    shouldExport = false
+                }
+            } else {
+                name = field.odin_name 
+                shouldExport = true
+            }
+
+            if shouldExport {
+                fmt.sbprintf(sb, 
+`        
+        case "{0:s}": {{
+            mani.to_value(L, 3, &udata^.{1:s})
+        }}
+`,    name, field.odin_name)
+            }
+        }
+
+        fmt.sbprintf(sb, 
+`
+    }}
+    return 1
+}}
+
+`       )
+    }
+}
+
 generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport, filename: string) {
     using strings
     fn_name := strings.concatenate({"_mani_", fn.name}, context.temp_allocator)
@@ -178,7 +563,9 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     write_string(sb, "fn: mani.ProcExport\n    ")
 
     write_string(sb, "fn.pkg = ")
+    write_rune(sb, '"')
     write_string(sb, exports.symbols_package)
+    write_rune(sb, '"')
     write_string(sb, "\n    ")
 
     write_string(sb, "fn.odin_name = ")
@@ -237,7 +624,7 @@ generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
             }
 
             case StructExport: {
-                fmt.printf("Structs coming soon\n") 
+                generate_struct_lua_wrapper(config, exports, x, exports.relpath)
             }
         }
     }

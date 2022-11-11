@@ -3,6 +3,7 @@ package mani
 import lua "shared:lua"
 import luaL "shared:luaL"
 import strings "core:strings"
+import "core:c"
 
 import "core:runtime"
 
@@ -12,6 +13,7 @@ ManiName :: distinct string
 
 MetatableData :: struct {
     name: cstring,
+    odin_type: typeid,
     index: lua.CFunction,
     newindex: lua.CFunction,
 }
@@ -29,14 +31,21 @@ ProcExport :: struct {
     lua_proc: lua.CFunction,
 }
 
+// Note(Dragos): Test performance
+FieldSetProc :: #type proc(L: ^lua.State, s: rawptr, field: string) 
+FieldGetProc :: #type proc(L: ^lua.State, s: rawptr, field: string) 
+
+
 StructFieldExport :: struct {
     lua_name: LuaName,
     odin_name: OdinName,
+    type: typeid,
 }
 
 StructExport :: struct {
     using base: LuaExport,
-    fields: map[OdinName]StructFieldExport, // Key: odin_name
+    type: typeid,
+    fields: map[LuaName]StructFieldExport, // This should be LuaName
     ref_meta: Maybe(MetatableData),
     copy_meta: Maybe(MetatableData),
 }
@@ -44,13 +53,13 @@ StructExport :: struct {
 // TODO(Add lua state in here aswell) (then we can have a single init function instead of export_all)
 State :: struct {
     procs: map[OdinName]ProcExport, // Key: odin_name
-    structs: map[OdinName]StructExport, // Key: odin_name
+    structs: map[typeid]StructExport, // Key: type 
     udata_metatable_mapping: map[typeid]cstring, // Key: odin type; Value: lua name
 }
 
 global_state := State {
     procs = make(map[OdinName]ProcExport),
-    structs = make(map[OdinName]StructExport),
+    structs = make(map[typeid]StructExport),
     udata_metatable_mapping = make(map[typeid]cstring),
 }
 
@@ -59,6 +68,18 @@ default_context: proc "contextless" () -> runtime.Context = nil
 add_function :: proc(v: ProcExport) {
     using global_state 
     procs[v.odin_name] = v
+}
+
+add_struct :: proc(s: StructExport) {
+    using global_state 
+    structs[s.type] = s
+    if ref, ok := s.ref_meta.?; ok {
+        udata_metatable_mapping[ref.odin_type] = ref.name
+    }
+
+    if copy, ok := s.copy_meta.?; ok {
+        udata_metatable_mapping[copy.odin_type] = copy.name
+    }
 }
 
 
@@ -83,5 +104,6 @@ export_all :: proc(L: ^lua.State, using state: State) {
         cstr := strings.clone_to_cstring(cast(string)val.lua_name, context.temp_allocator)
         lua.setglobal(L, cstr)
     }
+    
     
 }

@@ -11,14 +11,14 @@ another_Fn :: proc(my_param1: string, my_param2: c.int) -> c.int {
 }
 
 
-//@(LuaExport, AllowRef, AllowCopy) // If no LuaFields is specified, make all
+@(LuaExport, AllowRef, AllowCopy) // If no LuaFields is specified, make all
 TestObject :: struct {
     value: int,
 }
 
-//@(LuaExport, Name = "half_object", AllowCopy, AllowRef)
-//@(LuaFields, 
-//    value = "Value") //hidden is hidden 💀
+@(LuaExport, Name = "half_object", AllowCopy, AllowRef)
+@(LuaFields, 
+    value = "Value") 
 HalfObject :: struct {
     value: f64,
     hidden: int,

@@ -288,14 +288,17 @@ parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: 
     }
 
     // Check if LuaFields match
-    for fieldName, _ in result.properties[LUAFIELDS_STR] {
-        if fieldName not_in result.fields {
-            mani.temp_logger_token(context.logger.data, value_decl, fieldName)  
-            log.errorf("Found unknown field in LuaFields. Make sure they match the struct!")
-            err = .UnknownProperty
-            return
+    if LUAFIELDS_STR in result.properties {
+        for fieldName, _ in result.properties[LUAFIELDS_STR] {
+            if fieldName not_in result.fields {
+                mani.temp_logger_token(context.logger.data, value_decl, fieldName)  
+                log.errorf("Found unknown field in LuaFields. Make sure they match the struct!")
+                err = .UnknownProperty
+                return
+            }
         }
     }
+    
     err = .OkExport
     return
 }
