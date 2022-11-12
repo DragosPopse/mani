@@ -19,11 +19,13 @@ import "core:mem"
 import "core:log"
 
 
+
 main :: proc() {
     using fmt  
     context.logger = log.create_console_logger(.Debug, log.Options{.Terminal_Color, .Level, .Line, .Procedure})
     defer log.destroy_console_logger(context.logger)
 
+  
     config := create_config_from_args()
     if !os.is_dir(config.input_directory) {
         fprintf(os.stderr, "Could not open input directory %s\n", config.input_directory)

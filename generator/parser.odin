@@ -51,6 +51,7 @@ PropertyCollection :: distinct map[string]PropertyMap
 
 NodeExport :: struct {
     properties: PropertyCollection,
+    lua_docs: [dynamic]string,
 }
 
 StructField :: struct {
@@ -128,12 +129,19 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
     }
     
     ok = parser.parse_file(&p, &f)
+
     
     if p.error_count > 0 {
         return
     }
 
     root := p.file
+
+    commentMapping := make(map[int]^ast.Comment_Group)
+    for comment in root.comments {
+        commentMapping[comment.end.line] = comment
+    }
+    
     
     // Note(Dragos): memory leaks around everywhere
     symbol_exports = file_exports_make()
@@ -143,8 +151,8 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
     symbol_exports.relpath, _ = filepath.to_slash(symbol_exports.relpath)
     symbol_exports.symbols_package = root.pkg_name
     
-    for x in root.decls {
-        
+    for x, index in root.decls {
+
         #partial switch x in x.derived {
             case ^ast.Import_Decl: {
                 importName: string
@@ -178,21 +186,21 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
 
         if decl, ok := x.derived.(^ast.Value_Decl); ok {
             if len(decl.attributes) < 1 do continue // No attributes here, move on
-            // Note(Dragos): Should this be called in the parse_proc/parse_struct?
-            properties, propErr := parse_properties(root, decl) // Todo(Dragos): Memory leaks when erroring
-            if propErr != .OkExport do continue
-            
+
             #partial switch v in decl.values[0].derived {
                 case ^ast.Proc_Lit: {
                     exportProc, err := parse_proc(root, decl, v)
-                    exportProc.properties = properties
-                    append(&symbol_exports.symbols, exportProc) // Add the function to the results
+                    if err == .OkExport {
+                        exportProc.lua_docs = parse_lua_annotations(root, decl, commentMapping)
+                        append(&symbol_exports.symbols, exportProc) 
+                    }
+                    
                 }
 
                 case ^ast.Struct_Type: {
                     exportStruct, err := parse_struct(root, decl, v) 
-                    exportStruct.properties = properties
                     if err == .OkExport {
+                        exportStruct.lua_docs = parse_lua_annotations(root, decl, commentMapping)
                         append(&symbol_exports.symbols, exportStruct)
                     }
                 }
@@ -212,6 +220,25 @@ ParseErr :: enum {
     OkExport,
     MissingLuaExport, 
     UnknownProperty,
+}
+
+parse_lua_annotations :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, mapping: map[int]^ast.Comment_Group, allocator := context.allocator) -> (docs: [dynamic]string) {
+    if len(value_decl.attributes) > 0 {
+        firstLine := value_decl.attributes[0].pos.line
+        if group, found := mapping[firstLine - 1]; found {
+            docs = make([dynamic]string, allocator)
+            text := root.src[group.pos.offset : group.end.offset]
+            lines := strings.split_lines(text, context.temp_allocator)
+            for line in lines {
+                for c, i in line {
+                    if c == '@' {
+                        append(&docs, line[i:])
+                    }
+                }
+            }
+        }
+    }
+    return
 }
 
 parse_properties :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, allocator := context.allocator) -> (collection: PropertyCollection, err: ParseErr) {

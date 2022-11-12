@@ -69,10 +69,6 @@ config_package :: proc(config: ^GeneratorConfig, pkg: string, filename: string) 
             name = "luaL",
             text = `import luaL "shared:luaL"`,
         }
-        file.imports["luax"] = FileImport {
-            name = "luax",
-            text = `import luax "shared:luax"`,
-        }
         file.imports["mani"] = FileImport {
             name = "mani",
             text = `import mani "shared:mani"`,
@@ -510,7 +506,7 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     //Get parameters from lua
     if fn.param_names != nil {
         for paramName, i in fn.param_names {
-            write_string(sb, "luax.get(L, ") // Note(Dragos): This needs to be replaced
+            write_string(sb, "mani.to_value(L, ") // Note(Dragos): This needs to be replaced
             write_int(sb, i + 1)
             write_string(sb, ", &")
             write_string(sb, paramName)
@@ -543,7 +539,7 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     write_string(sb, ")\n\n    ")
 
     for resultName, i in fn.result_names {
-        write_string(sb, "luax.push(L, ")
+        write_string(sb, "mani.push_value(L, ")
         write_string(sb, resultName)
         write_string(sb, ")\n    ")
     }
