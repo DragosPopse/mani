@@ -129,7 +129,7 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
 
     write_string(sb, "expStruct.lua_name = ")
     write_rune(sb, '"')
-    write_string(sb, s.properties[LUAEXPORT_STR]["Name"].value if "Name" in s.properties else s.name)
+    write_string(sb, s.properties[LUAEXPORT_STR]["Name"].value if "Name" in s.properties[LUAEXPORT_STR] else s.name)
     write_rune(sb, '"')
     write_string(sb, "\n    ")
 
@@ -572,7 +572,7 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
 
     write_string(sb, "fn.lua_name = ")
     write_rune(sb, '"')
-    write_string(sb, fn.properties[LUAEXPORT_STR]["Name"].value if "Name" in fn.properties else fn.name)
+    write_string(sb, fn.properties[LUAEXPORT_STR]["Name"].value if "Name" in fn.properties[LUAEXPORT_STR] else fn.name)
     write_rune(sb, '"')
     write_string(sb, "\n    ")
     
