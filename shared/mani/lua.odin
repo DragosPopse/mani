@@ -34,18 +34,17 @@ push_value :: proc(L: ^lua.State, val: $T) {
 }
 
 to_value :: proc(L: ^lua.State, #any_int stack_pos: int, val: ^$T) {
-   
-    fmt.printf("Value: %v\n", refl.typeid_base(T))
-    when intr.type_is_integer(type_of(refl.typeid_base(T))) {
-        val^ = cast(T)lua.tointeger(L, stack_pos)
-    } else when intr.type_is_float(type_of(refl.typeid_base(T))) {
-        val^ = cast(T)lua.tonumber(L, stack_pos) 
-    } else when intr.type_is_boolean(type_of(refl.typeid_base(T))) {
-        val^ = cast(T)lua.toboolean(L, stack_pos) 
-    } else when type_of(refl.typeid_base(T)) == cstring {
-        val^ = strings.unsafe_string_to_cstring(lua.tostring(L, stack_pos)) // we know its a cstring
-    } else when type_of(refl.typeid_base(T)) == string {
-        val^ = lua.tostring(L, stack_pos)
+    Base :: type_of(val^)
+    when intr.type_is_integer(Base) {
+        val^ = cast(Base)lua.tointeger(L, cast(i32)stack_pos)
+    } else when intr.type_is_float(Base) {
+        val^ = cast(Base)lua.tonumber(L, cast(i32)stack_pos) 
+    } else when intr.type_is_boolean(Base) {
+        val^ = cast(Base)lua.toboolean(L, cast(i32)stack_pos) 
+    } else when Base == cstring {
+        val^ = strings.unsafe_string_to_cstring(lua.tostring(L, cast(i32)stack_pos)) // we know its a cstring
+    } else when Base == string {
+        val^ = lua.tostring(L, cast(i32)stack_pos)
     } else {
         meta, ok := global_state.udata_metatable_mapping[type_of(refl.typeid_base(T))] // Is this correct?
         
