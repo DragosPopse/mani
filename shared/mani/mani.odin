@@ -98,6 +98,15 @@ export_all :: proc(L: ^lua.State, using state: State) {
             lua.setfield(L, -2, "__newindex")
             lua.pop(L, 1)
         }
+        if copy, ok := copy_meta.?; ok {
+            assert(copy.index != nil && copy.newindex != nil)
+            luaL.newmetatable(L, copy.name)
+            lua.pushcfunction(L, copy.index)
+            lua.setfield(L, -2, "__index")
+            lua.pushcfunction(L, copy.newindex)
+            lua.setfield(L, -2, "__newindex")
+            lua.pop(L, 1)
+        }
     }
     for key, val in procs {
         lua.pushcfunction(L, val.lua_proc)

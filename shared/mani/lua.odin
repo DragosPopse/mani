@@ -14,7 +14,7 @@ push_value :: proc(L: ^lua.State, val: $T) {
     when intr.type_is_integer(T) {
         lua.pushinteger(L, cast(lua.Integer)val) // Note(Dragos): Should this be casted implicitly? I think not
     } else when intr.type_is_float(T) {
-        lua.pushnumber(L, cast(Number)val)
+        lua.pushnumber(L, cast(lua.Number)val)
     } else when intr.type_is_boolean(T) {
         lua.pushboolean(L, cast(c.bool)val)
     } else when T == cstring {
@@ -24,8 +24,8 @@ push_value :: proc(L: ^lua.State, val: $T) {
     } else when intr.type_is_struct(T) {
         metatableStr, found := global_state.udata_metatable_mapping[T]
         assert(found, "Struct metatable was not found. Did you mark it with @(LuaExport)?")
-        udata := cast(^T)lua.newuserdata(L, size_of(T))
-     
+        udata := transmute(^T)lua.newuserdata(L, size_of(T))
+        udata^ = val
         luaL.getmetatable(L, metatableStr)
         lua.setmetatable(L, -2)
     } else {
@@ -46,7 +46,7 @@ to_value :: proc(L: ^lua.State, #any_int stack_pos: int, val: ^$T) {
     } else when Base == string {
         val^ = lua.tostring(L, cast(i32)stack_pos)
     } else {
-        meta, ok := global_state.udata_metatable_mapping[type_of(refl.typeid_base(T))] // Is this correct?
+        meta, ok := global_state.udata_metatable_mapping[Base] // Is this correct?
         
         assert(ok, "Metatable not found for type")
         data := cast(^T)luaL.checkudata(L, cast(i32)stack_pos, meta) // Note(Dragos) This must be wrong 

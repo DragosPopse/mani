@@ -271,7 +271,7 @@ write_lua_index :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExp
 `
 _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
     context = mani.default_context()
-    udata := cast(^{1:s})luaL.checkudata(L, 1, "{0:s}")
+    udata := transmute(^{1:s})luaL.checkudata(L, 1, "{0:s}")
     key := lua.tostring(L, 2)
     switch key {{
         case: {{
@@ -324,7 +324,7 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 `
 _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
     context = mani.default_context()
-    udata := cast(^^{1:s})luaL.checkudata(L, 1, "{0:s}")
+    udata := transmute(^^{1:s})luaL.checkudata(L, 1, "{0:s}")
     key := lua.tostring(L, 2)
     switch key {{
         case: {{
@@ -384,7 +384,7 @@ write_lua_newindex :: proc(sb: ^strings.Builder, exports: FileExports, s: Struct
 `
 _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
     context = mani.default_context()
-    udata := cast(^{1:s})luaL.checkudata(L, 1, "{0:s}")
+    udata := transmute(^{1:s})luaL.checkudata(L, 1, "{0:s}")
     key := lua.tostring(L, 2)
     switch key {{
         case: {{
@@ -437,7 +437,7 @@ _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 `
 _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
     context = mani.default_context()
-    udata := cast(^^{1:s})luaL.checkudata(L, 1, "{0:s}")
+    udata := transmute(^^{1:s})luaL.checkudata(L, 1, "{0:s}")
     key := lua.tostring(L, 2)
     switch key {{
         case: {{
