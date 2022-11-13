@@ -254,6 +254,7 @@ parse_properties :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, allocator
 
     for attr, i in value_decl.attributes {
         prefixName, _ := get_attr_elem(root, attr.elems[0])
+
         if prefixName not_in allowedPrefixes do continue
 
         if collection == nil {
@@ -431,7 +432,7 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
 }
 
 
-get_attr_elem :: proc(root: ^ast.File, elem: ^ast.Expr) -> (name: string, value: string) {
+get_attr_elem :: proc(root: ^ast.File, elem: ^ast.Expr) -> (name: string, value: string) { // value can be a map maybe
     #partial switch x in elem.derived  {
         case ^ast.Field_Value: {
             attr := x.field.derived.(^ast.Ident)
@@ -443,6 +444,10 @@ get_attr_elem :: proc(root: ^ast.File, elem: ^ast.Expr) -> (name: string, value:
 
                 case ^ast.Ident: {
                     value = root.src[v.pos.offset : v.end.offset]
+                }
+
+                case ^ast.Comp_Lit: {
+                    
                 }
             }
             name = attr.name
