@@ -43,15 +43,11 @@ LUAFIELDS_STR :: "LuaFields"
 
 PropertyValue :: union {
     string,
-    PropertyObject,
+    Property,
 }
 
-PropertyObject :: distinct map[string]PropertyValue
+Property :: distinct map[string]PropertyValue
 
-Property :: struct {
-    name: string,
-    value: string,
-}
 
 PropertyMap :: distinct map[string]Property
 PropertyCollection :: distinct map[string]PropertyMap

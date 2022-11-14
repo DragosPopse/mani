@@ -17,13 +17,25 @@ TestObject :: struct {
 }
 
 
-@(LuaExport, Name = "half_object", AllowCopy, AllowRef)
-@(LuaFields, 
-    value = "Value") 
+@(LuaExport = {
+    Name = "half_object",
+    Mode = { Ref, Copy },
+    Fields = {
+        value = "val",
+    },
+    Methods = {
+        half_object_print,  
+    },
+    Metamethods = {
+        __tostring = half_object_print
+    },
+    Lib = "mytable", // ?
+})
 HalfObject :: struct {
     value: f64 `@(LuaExport)`, // This could work
     hidden: int,
 }
+
 
 
 half_object_print :: proc(using v: HalfObject) {
