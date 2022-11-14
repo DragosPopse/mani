@@ -41,6 +41,13 @@ ALLOWED_PROPERTIES := map[typeid]map[string]map[string]bool {
 LUAEXPORT_STR :: "LuaExport"
 LUAFIELDS_STR :: "LuaFields"
 
+PropertyValue :: union {
+    string,
+    PropertyObject,
+}
+
+PropertyObject :: distinct map[string]PropertyValue
+
 Property :: struct {
     name: string,
     value: string,
