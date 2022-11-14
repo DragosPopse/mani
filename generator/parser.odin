@@ -41,19 +41,25 @@ ALLOWED_PROPERTIES := map[typeid]map[string]map[string]bool {
 LUAEXPORT_STR :: "LuaExport"
 LUAFIELDS_STR :: "LuaFields"
 
+String :: string
+Identifier :: distinct String
+Int :: i64 
+Float :: f64 
+
+
 PropertyValue :: union {
-    string,
+    String,
+    Identifier,
+    Int,
     Property,
 }
 
 Property :: distinct map[string]PropertyValue
 
 
-PropertyMap :: distinct map[string]Property
-PropertyCollection :: distinct map[string]PropertyMap
 
 NodeExport :: struct {
-    properties: PropertyCollection,
+    properties: Property,
     lua_docs: [dynamic]string,
 }
 
@@ -218,11 +224,10 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
 
 
 
-ParseErr :: enum {
-    OkNoExport,
-    OkExport,
-    MissingLuaExport, 
-    UnknownProperty,
+AttributeErr :: enum {
+    Skip,
+    Export,
+    Error,
 }
 
 parse_lua_annotations :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, mapping: map[int]^ast.Comment_Group, allocator := context.allocator) -> (docs: [dynamic]string) {
@@ -244,50 +249,60 @@ parse_lua_annotations :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, mapp
     return
 }
 
-parse_properties :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, allocator := context.allocator) -> (collection: PropertyCollection, err: ParseErr) {
-    err = .OkNoExport
-    collection = nil
+validate_proc_properties :: proc(properties: Property) -> (ok: bool, msg: Maybe(string)) {
 
+    return false, nil
+}
+
+parse_property_value :: proc(root: ^ast.File, attribute: ^ast.Expr) -> (result: PropertyValue) {
+    #partial switch x in attribute.derived  {
+        case ^ast.Field_Value: {
+            field := x.field.derived.(^ast.Ident)
+            
+            #partial switch v in x.value.derived {
+                case ^ast.Basic_Lit: {
+                    result = strings.trim(v.tok.text, "\"")
+                }
+
+                case ^ast.Ident: {
+                    result = cast(Identifier)root.src[v.pos.offset : v.end.offset]
+                }
+
+                case ^ast.Comp_Lit: {
+                    
+                }
+            }
+            name = attr.name
+        }
+
+        case ^ast.Ident: {
+            name = x.name
+        }
+    }
+    return
+}
+
+parse_properties :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, allocator := context.allocator) -> (result: Property) {
+ 
     valueType := reflect.union_variant_type_info(value_decl.values[0].derived)
     if valueType.id not_in ALLOWED_PROPERTIES {
-        return nil, .OkNoExport
+        return
     }
 
-    allowedPrefixes := ALLOWED_PROPERTIES[valueType.id]
-
     for attr, i in value_decl.attributes {
-        prefixName, _ := get_attr_elem(root, attr.elems[0])
-
-        if prefixName not_in allowedPrefixes do continue
-
-        if collection == nil {
-            collection = make(PropertyCollection)
-        }
-        if prefixName not_in collection {
-            collection[prefixName] = make(PropertyMap)
-        }
-
-        properties := &collection[prefixName]
-        allowedProperties := allowedPrefixes[prefixName]
-        
-        for x, j in attr.elems[1:] { // 0 is already checked, we skip
-            attrName, attrVal := get_attr_elem(root, x)
-            if allowedProperties == nil || attrName in allowedProperties {
-                properties[attrName] = Property {
-                    name = attrName,
-                    value = attrVal,
-                }
-            } else {
-                mani.temp_logger_token(context.logger.data, x, attrName)
-                log.errorf("Found unknown attribute for %s prefix", prefixName)
-                err = .UnknownProperty
+        for x, j in attr.elems { 
+            attrName, _ := get_attr_elem(root, x)
+            if attrName == "LuaExport" {
+                result = make(Property)
+                result[attrName] = parse_property_value(root, x)
+                
                 return
             }
         }
         
     }
-    err = .OkExport
-    return 
+    
+    return
 }
 
 parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: ^ast.Struct_Type, allocator := context.allocator) -> (result: StructExport, err: ParseErr) {

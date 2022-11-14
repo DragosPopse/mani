@@ -37,7 +37,9 @@ HalfObject :: struct {
 }
 
 
-
+@(LuaExport = {
+    Name = "print"
+})
 half_object_print :: proc(using v: HalfObject) {
     fmt.printf("My value is %f, and my hidden is %d\n", value, hidden)
 }
