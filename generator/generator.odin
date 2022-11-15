@@ -49,7 +49,7 @@ config_package :: proc(config: ^GeneratorConfig, pkg: string, filename: string) 
         
         path := filepath.dir(filename, context.temp_allocator)
         name := filepath.stem(filename)
-        filename := strings.concatenate({path, "/", name, ".generated.odin"})
+        filename := strings.concatenate({path, "/", pkg, ".generated.odin"})
         config.files[pkg] = package_file_make(filename)
         sb := &(&config.files[pkg]).builder
         file := &config.files[pkg]

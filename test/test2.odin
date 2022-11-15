@@ -24,12 +24,11 @@ TestObject :: struct {
         value = "val",
     },
     Methods = {
-        half_object_print,  
+        half_object_print = "print",  
     },
     Metamethods = {
         __tostring = half_object_print,
     },
-    Lib = "mytable", // ?
 })
 HalfObject :: struct {
     value: f64, // This could work
@@ -38,7 +37,7 @@ HalfObject :: struct {
 
 
 @(LuaExport = {
-    Name = "print",
+    Name = "object_print",
 })
 half_object_print :: proc(using v: HalfObject) {
     fmt.printf("My value is %f, and my hidden is %d\n", value, hidden)
