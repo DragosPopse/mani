@@ -350,15 +350,17 @@ parse_attrib_val :: proc(root: ^ast.File, elem: ^ast.Expr) -> (result: AttribVal
         case ^ast.Field_Value: {
             #partial switch v in x.value.derived {
                 case ^ast.Basic_Lit: {
-                    value := strings.trim(v.tok.text, "\"")
+                    result = strings.trim(v.tok.text, "\"")
+                    return
                 }
 
                 case ^ast.Ident: {
                     value := root.src[v.pos.offset : v.end.offset]
+                    result = cast(Identifier)value
                 }
 
                 case ^ast.Comp_Lit: {
-                    
+                    result = parse_attrib_object(root, v)
                 }
             }
             return
@@ -440,8 +442,8 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
     v := proc_lit
     procType := v.type
     declName := value_decl.names[0].derived.(^ast.Ident).name // Note(Dragos): Does this work with 'a, b: int' ?????
-    
-    fmt.printf("%s: %v\n", declName, result.attribs)
+
+   
     result.name = declName 
     switch conv in procType.calling_convention {
         case string: {

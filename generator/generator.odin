@@ -525,9 +525,9 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     fn_name := strings.concatenate({"_mani_", fn.name}, context.temp_allocator)
     
     sb := &(&config.files[exports.symbols_package]).builder
-    //Add the function to the init body
 
     exportAttribs := fn.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_PROC_ATTRIBUTES
+    //fmt.printf("we are %s\n", fn.name)
     luaName := exportAttribs["Name"].(String) if "Name" in exportAttribs else fn.name
 
     write_string(sb, fn_name)
