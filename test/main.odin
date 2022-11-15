@@ -1,0 +1,6 @@
+package test 
+
+
+main :: proc() {
+    
+}

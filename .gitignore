@@ -19,3 +19,4 @@
 *.generated.odin
 
 !copy_to_shared.bat
+!test.bat
