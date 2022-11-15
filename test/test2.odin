@@ -32,7 +32,7 @@ TestObject :: struct {
     Lib = "mytable", // ?
 })
 HalfObject :: struct {
-    value: f64 `@(LuaExport)`, // This could work
+    value: f64, // This could work
     hidden: int,
 }
 

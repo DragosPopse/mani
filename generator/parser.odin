@@ -250,64 +250,28 @@ parse_lua_annotations :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, mapp
     return
 }
 
-validate_proc_properties :: proc(properties: Attributes) -> (err: AttribErr, msg: Maybe(string)) {
+validate_proc_attributes :: proc(proc_decl: ^ast.Proc_Lit, attribs: Attributes) -> (err: AttribErr, msg: Maybe(string)) {
+    if LUAEXPORT_STR not_in attribs {
+        return .Skip, nil
+    }
 
-    return
+    exportAttribs := attribs[LUAEXPORT_STR] 
+
+
+    return .Export, nil
 }
 
-/*
-parse_property_value :: proc(root: ^ast.File, attribute: ^ast.Expr) -> (result: PropertyValue) {
-    #partial switch x in attribute.derived  {
-        case ^ast.Field_Value: {
-            field := x.field.derived.(^ast.Ident)
-            
-            #partial switch v in x.value.derived {
-                case ^ast.Basic_Lit: {
-                    result = strings.trim(v.tok.text, "\"")
-                }
-
-                case ^ast.Ident: {
-                    result = cast(Identifier)root.src[v.pos.offset : v.end.offset]
-                }
-
-                case ^ast.Comp_Lit: {
-                    result = parse_property_value(root, v)
-                    
-                }
-            }
-            name = attribute.name
-        }
-
-        case ^ast.Ident: {
-            name = x.name
-        }
-    }
-    return
-}
-
-parse_properties :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, allocator := context.allocator) -> (result: Property) {
- 
-    valueType := reflect.union_variant_type_info(value_decl.values[0].derived)
-    if valueType.id not_in ALLOWED_PROPERTIES {
-        return
+validate_struct_attributes :: proc(struct_decl: ^ast.Struct_Type, attribs: Attributes) -> (err: AttribErr, msg: Maybe(string)) {
+     if LUAEXPORT_STR not_in attribs {
+        return .Skip, nil
     }
 
-    for attr, i in value_decl.attributes {
-        for x, j in attr.elems { 
-            attrName, _ := get_attr_elem(root, x)
-            if attrName == "LuaExport" {
-                result = make(Property)
-                result[attrName] = parse_property_value(root, x)
-                
-                return
-            }
-        }
-        
-    }
+    exportAttribs := attribs[LUAEXPORT_STR] 
     
-    return
+
+    return .Export, nil
 }
-*/
+
 
 get_attr_name :: proc(root: ^ast.File, elem: ^ast.Expr) -> (name: string) {
     #partial switch x in elem.derived  {
@@ -385,8 +349,8 @@ parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: 
     
     result.attribs = parse_attributes(root, value_decl)
 
-    if LUAEXPORT_STR not_in result.attribs {
-        return result, .Skip
+    if err, msg := validate_struct_attributes(struct_decl, result.attribs); err != .Export {
+        return result, err
     }
   
     result.name = value_decl.names[0].derived.(^ast.Ident).name
@@ -435,8 +399,8 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
     //result.properties, err = parse_properties(root, value_decl)
     result.attribs = parse_attributes(root, value_decl)
     
-    if LUAEXPORT_STR not_in result.attribs {
-        return result, .Skip
+    if err, msg := validate_proc_attributes(proc_lit, result.attribs); err != .Export {
+        return result, err
     }
   
     v := proc_lit
