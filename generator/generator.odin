@@ -13,7 +13,7 @@ DEFAULT_STRUCT_ATTRIBUTES := Attributes {
     "Mode" = Attributes {
         "Ref" = nil, 
         "Copy" = nil,
-    }
+    },
 }
 
 
@@ -116,8 +116,7 @@ generate_struct_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExpor
 
 write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
     using strings
-    //allowRef := "AllowRef" in s.properties[LUAEXPORT_STR]
-    //allowCopy := "AllowCopy" in s.properties[LUAEXPORT_STR]
+
     exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_STRUCT_ATTRIBUTES
     exportMode := exportAttribs["Mode"].(Attributes)  
     allowRef := "Ref" in exportMode
@@ -527,7 +526,6 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     sb := &(&config.files[exports.symbols_package]).builder
 
     exportAttribs := fn.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_PROC_ATTRIBUTES
-    //fmt.printf("we are %s\n", fn.name)
     luaName := exportAttribs["Name"].(String) if "Name" in exportAttribs else fn.name
 
     write_string(sb, fn_name)
@@ -666,25 +664,4 @@ generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
             }
         }
     }
-
-    /*
-    output := to_string(sb)
-
-    output_dir_slash, new_alloc := filepath.to_slash(output_dir)
-    dirs := strings.split(output_dir_slash, "/")
-    for dir, i in dirs {
-        dirname := strings.join(dirs[0:i + 1], "/")
-        if !os.is_dir(dirname) {
-            if err := os.make_directory(dirname, 0); err != os.ERROR_NONE {
-                fmt.printf("Failed making directory %s %d\n", dirname, err)
-            }
-        }
-    }
-   
-    stem := filepath.stem(exports.relpath)
-    filename := strings.concatenate({output_dir, "/", stem, ".generated.odin"}, context.temp_allocator)
-    fd, ok := os.open(filename, os.O_CREATE | os.O_WRONLY | os.O_TRUNC)
-
-    os.write_string(fd, output)
-    */
 }
