@@ -214,57 +214,7 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
 
     }
 
-    //exportAll := "All" in s.properties[LUAEXPORT_STR]
-    
-
-    // Note(Dragos): Not the coolest API imo
-    // Yep this doesn't work quite well. Should figure out more things
-    /*if LUAFIELDS_STR in s.properties {
-        for k, v in s.properties[LUAFIELDS_STR] {
-            luaName: string
-            if v.value == "" {
-                luaName = v.name
-            } else {
-                luaName = v.value
-            }
-            
-            write_string(sb, "expStruct.fields[")
-            write_rune(sb, '"')
-            write_string(sb, luaName)
-            write_rune(sb, '"')
-            write_string(sb, "] = mani.StructFieldExport { ")
-            write_string(sb, "lua_name = ")
-            write_rune(sb, '"')
-            write_string(sb, luaName)
-            write_rune(sb, '"')
-            write_string(sb, ", odin_name = ")
-            write_rune(sb, '"')
-            write_string(sb, v.name)
-            write_rune(sb, '"')
-            write_string(sb, ", type = ")
-            write_string(sb, s.fields[k].type)
-            write_string(sb, " }\n    ")
-        }
-    } else { // Export all
-        for k, field in s.fields {
-            write_string(sb, "expStruct.fields[")
-            write_rune(sb, '"')
-            write_string(sb, field.odin_name)
-            write_rune(sb, '"')
-            write_string(sb, "] = mani.StructFieldExport { ")
-            write_string(sb, "lua_name = ")
-            write_rune(sb, '"')
-            write_string(sb, field.odin_name)
-            write_rune(sb, '"')
-            write_string(sb, ", odin_name = ")
-            write_rune(sb, '"')
-            write_string(sb, field.odin_name)
-            write_rune(sb, '"')
-            write_string(sb, ", type = ")
-            write_string(sb, field.type)
-            write_string(sb, " }\n    ")
-        }
-    }*/
+   
     
     write_string(sb, "mani.add_struct(expStruct)")
     write_string(sb, "\n}\n\n")
@@ -341,10 +291,6 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
     }
 
     if allowRef {
-        //write_string(sb, "_mani_index_")
-        //write_string(sb, s.name)
-        //write_string(sb, " :: proc(L: ^lua.State) {\n    ")
-        //write_string(sb, "udata := ")
         fmt.sbprintf(sb, 
 `
 _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
@@ -407,10 +353,6 @@ write_lua_newindex :: proc(sb: ^strings.Builder, exports: FileExports, s: Struct
     allowCopy := "Copy" in exportMode
 
     if allowCopy {
-        //write_string(sb, "_mani_index_")
-        //write_string(sb, s.name)
-        //write_string(sb, " :: proc(L: ^lua.State) {\n    ")
-        //write_string(sb, "udata := ")
         fmt.sbprintf(sb, 
 `
 _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
@@ -463,10 +405,6 @@ _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
     }
 
     if allowRef {
-        //write_string(sb, "_mani_index_")
-        //write_string(sb, s.name)
-        //write_string(sb, " :: proc(L: ^lua.State) {\n    ")
-        //write_string(sb, "udata := ")
         fmt.sbprintf(sb, 
 `
 _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
