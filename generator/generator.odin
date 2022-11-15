@@ -105,8 +105,15 @@ generate_struct_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExpor
 
 write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
     using strings
-    allowRef := "AllowRef" in s.properties[LUAEXPORT_STR]
-    allowCopy := "AllowCopy" in s.properties[LUAEXPORT_STR]
+    //allowRef := "AllowRef" in s.properties[LUAEXPORT_STR]
+    //allowCopy := "AllowCopy" in s.properties[LUAEXPORT_STR]
+    exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes)
+    exportMode := exportAttribs["Mode"].(Attributes) 
+    allowRef := "Ref" in exportMode
+    allowCopy := "Copy" in exportMode
+    
+    luaName := exportAttribs["Name"].(String) if "Name" in exportAttribs else s.name
+
 
     write_string(sb, "@(init)\n")
     write_string(sb, "_mani_init_")
@@ -129,7 +136,7 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
 
     write_string(sb, "expStruct.lua_name = ")
     write_rune(sb, '"')
-    write_string(sb, s.properties[LUAEXPORT_STR]["Name"].value if "Name" in s.properties[LUAEXPORT_STR] else s.name)
+    write_string(sb, luaName)
     write_rune(sb, '"')
     write_string(sb, "\n    ")
 
@@ -202,7 +209,7 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
 
     // Note(Dragos): Not the coolest API imo
     // Yep this doesn't work quite well. Should figure out more things
-    if LUAFIELDS_STR in s.properties {
+    /*if LUAFIELDS_STR in s.properties {
         for k, v in s.properties[LUAFIELDS_STR] {
             luaName: string
             if v.value == "" {
@@ -247,7 +254,7 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
             write_string(sb, field.type)
             write_string(sb, " }\n    ")
         }
-    }
+    }*/
     
     write_string(sb, "mani.add_struct(expStruct)")
     write_string(sb, "\n}\n\n")
@@ -259,8 +266,11 @@ write_lua_newstruct :: proc(sb: ^strings.Builder, exports: FileExports, s: Struc
 
 write_lua_index :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
     using strings
-    allowRef := "AllowRef" in s.properties[LUAEXPORT_STR]
-    allowCopy := "AllowCopy" in s.properties[LUAEXPORT_STR]
+    exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes)
+    luaFields := exportAttribs["Fields"].(Attributes) if "Fields" in exportAttribs else nil
+    exportMode := exportAttribs["Mode"].(Attributes) 
+    allowRef := "Ref" in exportMode
+    allowCopy := "Copy" in exportMode
 
     if allowCopy {
         //write_string(sb, "_mani_index_")
@@ -279,14 +289,19 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
             return 1
         }}
 `       , s.name, s.name)
+
+
         for k, field in s.fields {
-            fieldsRename, ok := s.properties[LUAFIELDS_STR]
             shouldExport := false
             name: string
-            if ok {
-                if luaName, ok := fieldsRename[field.odin_name]; ok {
-                    name = luaName.value
+            if luaFields != nil {
+                if luaField, ok := luaFields[field.odin_name]; ok {
                     shouldExport = true
+                    if luaName, ok := luaField.(String); ok {
+                        name = luaName
+                    } else {
+                        name = field.odin_name
+                    }  
                 } else {
                     shouldExport = false
                 }
@@ -333,13 +348,16 @@ _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
         }}
 `       , s.name, s.name)
         for k, field in s.fields {
-            fieldsRename, ok := s.properties[LUAFIELDS_STR]
             shouldExport := false
             name: string
-            if ok {
-                if luaName, ok := fieldsRename[field.odin_name]; ok {
-                    name = luaName.value
+            if luaFields != nil {
+                if luaField, ok := luaFields[field.odin_name]; ok {
                     shouldExport = true
+                    if luaName, ok := luaField.(String); ok {
+                        name = luaName
+                    } else {
+                        name = field.odin_name
+                    }  
                 } else {
                     shouldExport = false
                 }
@@ -372,8 +390,11 @@ _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
 
 write_lua_newindex :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
     using strings
-    allowRef := "AllowRef" in s.properties[LUAEXPORT_STR]
-    allowCopy := "AllowCopy" in s.properties[LUAEXPORT_STR]
+    exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes)
+    luaFields := exportAttribs["Fields"].(Attributes) if "Fields" in exportAttribs else nil
+    exportMode := exportAttribs["Mode"].(Attributes) 
+    allowRef := "Ref" in exportMode
+    allowCopy := "Copy" in exportMode
 
     if allowCopy {
         //write_string(sb, "_mani_index_")
@@ -393,13 +414,16 @@ _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
         }}
 `       , s.name, s.name)
         for k, field in s.fields {
-            fieldsRename, ok := s.properties[LUAFIELDS_STR]
             shouldExport := false
             name: string
-            if ok {
-                if luaName, ok := fieldsRename[field.odin_name]; ok {
-                    name = luaName.value
+            if luaFields != nil {
+                if luaField, ok := luaFields[field.odin_name]; ok {
                     shouldExport = true
+                    if luaName, ok := luaField.(String); ok {
+                        name = luaName
+                    } else {
+                        name = field.odin_name
+                    }  
                 } else {
                     shouldExport = false
                 }
@@ -445,13 +469,16 @@ _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
         }}
 `       , s.name, s.name)
         for k, field in s.fields {
-            fieldsRename, ok := s.properties[LUAFIELDS_STR]
             shouldExport := false
             name: string
-            if ok {
-                if luaName, ok := fieldsRename[field.odin_name]; ok {
-                    name = luaName.value
+            if luaFields != nil {
+                if luaField, ok := luaFields[field.odin_name]; ok {
                     shouldExport = true
+                    if luaName, ok := luaField.(String); ok {
+                        name = luaName
+                    } else {
+                        name = field.odin_name
+                    }  
                 } else {
                     shouldExport = false
                 }
@@ -487,6 +514,8 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     sb := &(&config.files[exports.symbols_package]).builder
     //Add the function to the init body
 
+    exportAttribs := fn.attribs[LUAEXPORT_STR].(Attributes)
+    luaName := exportAttribs["Name"].(String) if "Name" in exportAttribs else fn.name
 
     write_string(sb, fn_name)
     write_string(sb, " :: proc \"c\" (L: ^lua.State) -> c.int {\n    ")
@@ -572,7 +601,7 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
 
     write_string(sb, "fn.lua_name = ")
     write_rune(sb, '"')
-    write_string(sb, fn.properties[LUAEXPORT_STR]["Name"].value if "Name" in fn.properties[LUAEXPORT_STR] else fn.name)
+    write_string(sb, luaName)
     write_rune(sb, '"')
     write_string(sb, "\n    ")
     
