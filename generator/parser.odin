@@ -250,9 +250,9 @@ parse_lua_annotations :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, mapp
     return
 }
 
-validate_proc_properties :: proc(properties: Attributes) -> (ok: bool, msg: Maybe(string)) {
+validate_proc_properties :: proc(properties: Attributes) -> (err: AttribErr, msg: Maybe(string)) {
 
-    return false, nil
+    return
 }
 
 /*
@@ -338,31 +338,54 @@ parse_attributes :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl) -> (resul
 
 parse_attrib_object :: proc(root: ^ast.File, obj: ^ast.Comp_Lit) -> (result: Attributes) {
     result = make(Attributes)
+    for elem, i in obj.elems {
+        name := get_attr_name(root, elem)
+        result[name] = parse_attrib_val(root, elem)
+    }
     return
 }
 
 parse_attrib_val :: proc(root: ^ast.File, elem: ^ast.Expr) -> (result: AttribVal) {
     #partial switch x in elem.derived  {
         case ^ast.Field_Value: {
-            attr := x.field.derived.(^ast.Ident)
-            //name = attr.name
+            #partial switch v in x.value.derived {
+                case ^ast.Basic_Lit: {
+                    value := strings.trim(v.tok.text, "\"")
+                }
+
+                case ^ast.Ident: {
+                    value := root.src[v.pos.offset : v.end.offset]
+                }
+
+                case ^ast.Comp_Lit: {
+                    
+                }
+            }
+            return
         }
 
         case ^ast.Ident: {
-            result = cast(Identifier)x.name
-            //name = x.name
+            //result = cast(Identifier)x.name
+            //fmt.printf("We shouldn't be an identifier %s\n", x.name)
+            return nil
         }
 
         case ^ast.Comp_Lit: {
-            result = parse_attrib_object(root, x)
+            //result = parse_attrib_object(root, x)
+            fmt.printf("We shouldn't be in comp literal %v\n", x)
+            return
         }
     }
-    return
+    return nil
 }
 
 parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: ^ast.Struct_Type, allocator := context.allocator) -> (result: StructExport, err: AttribErr) {
-    //result.properties, err = parse_properties(root, value_decl, allocator)
-    if err != .Export do return
+    
+    result.attribs = parse_attributes(root, value_decl)
+
+    if LUAEXPORT_STR not_in result.attribs {
+        return result, .Skip
+    }
   
     result.name = value_decl.names[0].derived.(^ast.Ident).name
     result.fields = make(map[string]StructField) 
@@ -408,11 +431,17 @@ parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: 
 parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.Proc_Lit, allocator := context.allocator) -> (result: ProcedureExport, err: AttribErr) {
  
     //result.properties, err = parse_properties(root, value_decl)
-    //if err != .Export do return
+    result.attribs = parse_attributes(root, value_decl)
+    
+    if LUAEXPORT_STR not_in result.attribs {
+        return result, .Skip
+    }
+  
     v := proc_lit
     procType := v.type
     declName := value_decl.names[0].derived.(^ast.Ident).name // Note(Dragos): Does this work with 'a, b: int' ?????
     
+    fmt.printf("%s: %v\n", declName, result.attribs)
     result.name = declName 
     switch conv in procType.calling_convention {
         case string: {
@@ -499,9 +528,7 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
     }
 
     
-    
-    //err = .OkExport
-    return
+    return result, .Export
 }
 
 

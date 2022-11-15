@@ -5,6 +5,17 @@ import fmt "core:fmt"
 import filepath "core:path/filepath"
 import os "core:os"
 
+DEFAULT_PROC_ATTRIBUTES := Attributes {
+    
+}
+
+DEFAULT_STRUCT_ATTRIBUTES := Attributes {
+    "Mode" = Attributes {
+        "Ref" = nil, 
+        "Copy" = nil,
+    }
+}
+
 
 PackageFile :: struct {
     builder: strings.Builder,
@@ -107,8 +118,8 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
     using strings
     //allowRef := "AllowRef" in s.properties[LUAEXPORT_STR]
     //allowCopy := "AllowCopy" in s.properties[LUAEXPORT_STR]
-    exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes)
-    exportMode := exportAttribs["Mode"].(Attributes) 
+    exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_STRUCT_ATTRIBUTES
+    exportMode := exportAttribs["Mode"].(Attributes)  
     allowRef := "Ref" in exportMode
     allowCopy := "Copy" in exportMode
     
@@ -266,7 +277,7 @@ write_lua_newstruct :: proc(sb: ^strings.Builder, exports: FileExports, s: Struc
 
 write_lua_index :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
     using strings
-    exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes)
+    exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_STRUCT_ATTRIBUTES
     luaFields := exportAttribs["Fields"].(Attributes) if "Fields" in exportAttribs else nil
     exportMode := exportAttribs["Mode"].(Attributes) 
     allowRef := "Ref" in exportMode
@@ -390,7 +401,7 @@ _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
 
 write_lua_newindex :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
     using strings
-    exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes)
+    exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_STRUCT_ATTRIBUTES
     luaFields := exportAttribs["Fields"].(Attributes) if "Fields" in exportAttribs else nil
     exportMode := exportAttribs["Mode"].(Attributes) 
     allowRef := "Ref" in exportMode
@@ -507,6 +518,8 @@ _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
     }
 }
 
+
+
 generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport, filename: string) {
     using strings
     fn_name := strings.concatenate({"_mani_", fn.name}, context.temp_allocator)
@@ -514,7 +527,7 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     sb := &(&config.files[exports.symbols_package]).builder
     //Add the function to the init body
 
-    exportAttribs := fn.attribs[LUAEXPORT_STR].(Attributes)
+    exportAttribs := fn.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_PROC_ATTRIBUTES
     luaName := exportAttribs["Name"].(String) if "Name" in exportAttribs else fn.name
 
     write_string(sb, fn_name)
