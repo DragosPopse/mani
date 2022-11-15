@@ -47,19 +47,20 @@ Int :: i64
 Float :: f64 
 
 
-PropertyValue :: union {
+AttribVal :: union {
+    // nil: empty attribute, like a flag, array element, etc
     String,
     Identifier,
     Int,
-    Property,
+    Attributes,
 }
 
-Property :: distinct map[string]PropertyValue
+Attributes :: distinct map[string]AttribVal
 
 
 
 NodeExport :: struct {
-    properties: Property,
+    attribs: Attributes,
     lua_docs: [dynamic]string,
 }
 
@@ -199,7 +200,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
             #partial switch v in decl.values[0].derived {
                 case ^ast.Proc_Lit: {
                     exportProc, err := parse_proc(root, decl, v)
-                    if err == .OkExport {
+                    if err == .Export {
                         exportProc.lua_docs = parse_lua_annotations(root, decl, commentMapping)
                         append(&symbol_exports.symbols, exportProc) 
                     }
@@ -208,7 +209,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
 
                 case ^ast.Struct_Type: {
                     exportStruct, err := parse_struct(root, decl, v) 
-                    if err == .OkExport {
+                    if err == .Export {
                         exportStruct.lua_docs = parse_lua_annotations(root, decl, commentMapping)
                         append(&symbol_exports.symbols, exportStruct)
                     }
@@ -224,7 +225,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
 
 
 
-AttributeErr :: enum {
+AttribErr :: enum {
     Skip,
     Export,
     Error,
@@ -249,11 +250,12 @@ parse_lua_annotations :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, mapp
     return
 }
 
-validate_proc_properties :: proc(properties: Property) -> (ok: bool, msg: Maybe(string)) {
+validate_proc_properties :: proc(properties: Attributes) -> (ok: bool, msg: Maybe(string)) {
 
     return false, nil
 }
 
+/*
 parse_property_value :: proc(root: ^ast.File, attribute: ^ast.Expr) -> (result: PropertyValue) {
     #partial switch x in attribute.derived  {
         case ^ast.Field_Value: {
@@ -269,10 +271,11 @@ parse_property_value :: proc(root: ^ast.File, attribute: ^ast.Expr) -> (result: 
                 }
 
                 case ^ast.Comp_Lit: {
+                    result = parse_property_value(root, v)
                     
                 }
             }
-            name = attr.name
+            name = attribute.name
         }
 
         case ^ast.Ident: {
@@ -304,10 +307,62 @@ parse_properties :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, allocator
     
     return
 }
+*/
 
-parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: ^ast.Struct_Type, allocator := context.allocator) -> (result: StructExport, err: ParseErr) {
-    result.properties, err = parse_properties(root, value_decl, allocator)
-    if err != .OkExport do return
+get_attr_name :: proc(root: ^ast.File, elem: ^ast.Expr) -> (name: string) {
+    #partial switch x in elem.derived  {
+        case ^ast.Field_Value: {
+            attr := x.field.derived.(^ast.Ident)
+            name = attr.name
+        }
+
+        case ^ast.Ident: {
+            name = x.name
+        }
+    }
+    return
+}
+
+parse_attributes :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl) -> (result: Attributes) {
+    result = make(Attributes)
+    for attr, i in value_decl.attributes {
+        for x, j in attr.elems { 
+            name := get_attr_name(root, x)
+            
+            result[name] = parse_attrib_val(root, x)
+        }
+        
+    }
+    return
+}
+
+parse_attrib_object :: proc(root: ^ast.File, obj: ^ast.Comp_Lit) -> (result: Attributes) {
+    result = make(Attributes)
+    return
+}
+
+parse_attrib_val :: proc(root: ^ast.File, elem: ^ast.Expr) -> (result: AttribVal) {
+    #partial switch x in elem.derived  {
+        case ^ast.Field_Value: {
+            attr := x.field.derived.(^ast.Ident)
+            //name = attr.name
+        }
+
+        case ^ast.Ident: {
+            result = cast(Identifier)x.name
+            //name = x.name
+        }
+
+        case ^ast.Comp_Lit: {
+            result = parse_attrib_object(root, x)
+        }
+    }
+    return
+}
+
+parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: ^ast.Struct_Type, allocator := context.allocator) -> (result: StructExport, err: AttribErr) {
+    //result.properties, err = parse_properties(root, value_decl, allocator)
+    if err != .Export do return
   
     result.name = value_decl.names[0].derived.(^ast.Ident).name
     result.fields = make(map[string]StructField) 
@@ -334,7 +389,7 @@ parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: 
     }
 
     // Check if LuaFields match
-    if LUAFIELDS_STR in result.properties {
+    /*if LUAFIELDS_STR in result.properties {
         for fieldName, _ in result.properties[LUAFIELDS_STR] {
             if fieldName not_in result.fields {
                 mani.temp_logger_token(context.logger.data, value_decl, fieldName)  
@@ -343,17 +398,17 @@ parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: 
                 return
             }
         }
-    }
+    }*/
     
-    err = .OkExport
+    err = .Export
     return
 }
 
 
-parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.Proc_Lit, allocator := context.allocator) -> (result: ProcedureExport, err: ParseErr) {
+parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.Proc_Lit, allocator := context.allocator) -> (result: ProcedureExport, err: AttribErr) {
  
-    result.properties, err = parse_properties(root, value_decl)
-    if err != .OkExport do return
+    //result.properties, err = parse_properties(root, value_decl)
+    //if err != .Export do return
     v := proc_lit
     procType := v.type
     declName := value_decl.names[0].derived.(^ast.Ident).name // Note(Dragos): Does this work with 'a, b: int' ?????
@@ -445,7 +500,7 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
 
     
     
-    err = .OkExport
+    //err = .OkExport
     return
 }
 
