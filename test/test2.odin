@@ -24,7 +24,7 @@ TestObject :: struct {
         value = "val",
     },
     Methods = {
-        //half_object_print = "print",  
+        half_object_print = "print", // I could store a map of ProcExports inside the generator
     },
     Metamethods = {
         //__tostring = half_object_print,

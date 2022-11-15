@@ -443,12 +443,7 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
                     paramType = root.src[x.pos.offset : x.end.offset] //godlike odin
                 }
                 case ^ast.Pointer_Type: {
-                    
                     paramType = root.src[x.pos.offset : x.end.offset]
-                    
-                    mani.temp_logger_token(context.logger.data, x, paramType)
-                    
-                    log.errorf("Pointer parameter type not supported")
                 }
             }
             
