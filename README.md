@@ -9,7 +9,9 @@ import "shared:lua"
 import "shared:luaL"
 import "shared:mani"
 
-@(LuaExport, Name = "my_nice_fn")
+@(LuaExport = {
+    Name = "my_nice_fn",
+})
 test :: proc(var: int) -> (result1: int, result2: int) {
     fmt.printf("Lua: Var is %d\n", var)
     result1 = 60 + var
