@@ -24,21 +24,34 @@ TestObject :: struct {
         value = "val",
     },
     Methods = {
-        half_object_print = "print",  
+        //half_object_print = "print",  
     },
     Metamethods = {
-        __tostring = half_object_print,
+        //__tostring = half_object_print,
     },
 })
 HalfObject :: struct {
-    value: f64, // This could work
+    value: int, // This could work
     hidden: int,
+}
+
+@(LuaExport)
+make_object :: proc(v: int) -> (r: HalfObject) {
+    return {
+        value = v,
+        hidden = v + 1,
+    }
+}
+
+@(LuaExport)
+mod_object :: proc(o: ^HalfObject, v: int) {
+    o.value = v
 }
 
 
 @(LuaExport = {
-    Name = "object_print",
+    Name = "print_object",
 })
 half_object_print :: proc(using v: HalfObject) {
-    fmt.printf("My value is %f, and my hidden is %d\n", value, hidden)
+    fmt.printf("My value is %d, and my hidden is %d\n", value, hidden)
 }
