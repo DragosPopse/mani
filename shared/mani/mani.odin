@@ -46,8 +46,8 @@ StructExport :: struct {
     using base: LuaExport,
     type: typeid,
     fields: map[LuaName]StructFieldExport, // This should be LuaName
-    ref_meta: Maybe(MetatableData),
-    copy_meta: Maybe(MetatableData),
+    light_meta: Maybe(MetatableData),
+    full_meta: Maybe(MetatableData),
 }
 
 // TODO(Add lua state in here aswell) (then we can have a single init function instead of export_all)
@@ -73,12 +73,12 @@ add_function :: proc(v: ProcExport) {
 add_struct :: proc(s: StructExport) {
     using global_state 
     structs[s.type] = s
-    if ref, ok := s.ref_meta.?; ok {
-        udata_metatable_mapping[ref.odin_type] = ref.name
+    if light, ok := s.light_meta.?; ok {
+        udata_metatable_mapping[light.odin_type] = light.name
     }
 
-    if copy, ok := s.copy_meta.?; ok {
-        udata_metatable_mapping[copy.odin_type] = copy.name
+    if full, ok := s.full_meta.?; ok {
+        udata_metatable_mapping[full.odin_type] = full.name
     }
 }
 
@@ -89,21 +89,21 @@ export_all :: proc(L: ^lua.State, using state: State) {
     } 
     for key, val in structs {
         using val 
-        if ref, ok := ref_meta.?; ok {
-            assert(ref.index != nil && ref.newindex != nil)
-            luaL.newmetatable(L, ref.name)
-            lua.pushcfunction(L, ref.index)
+        if light, ok := light_meta.?; ok {
+            assert(light.index != nil && light.newindex != nil)
+            luaL.newmetatable(L, light.name)
+            lua.pushcfunction(L, light.index)
             lua.setfield(L, -2, "__index")
-            lua.pushcfunction(L, ref.newindex)
+            lua.pushcfunction(L, light.newindex)
             lua.setfield(L, -2, "__newindex")
             lua.pop(L, 1)
         }
-        if copy, ok := copy_meta.?; ok {
-            assert(copy.index != nil && copy.newindex != nil)
-            luaL.newmetatable(L, copy.name)
-            lua.pushcfunction(L, copy.index)
+        if full, ok := full_meta.?; ok {
+            assert(full.index != nil && full.newindex != nil)
+            luaL.newmetatable(L, full.name)
+            lua.pushcfunction(L, full.index)
             lua.setfield(L, -2, "__index")
-            lua.pushcfunction(L, copy.newindex)
+            lua.pushcfunction(L, full.newindex)
             lua.setfield(L, -2, "__newindex")
             lua.pop(L, 1)
         }

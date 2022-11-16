@@ -10,7 +10,7 @@ import "core:strings"
 import "core:c"
 
 push_value :: proc(L: ^lua.State, val: $T) {
-    #assert(!intr.type_is_pointer(T), "Pointers are not supported in push_value")
+    //#assert(!intr.type_is_pointer(T), "Pointers are not supported in push_value")
     when intr.type_is_integer(T) {
         lua.pushinteger(L, cast(lua.Integer)val) // Note(Dragos): Should this be casted implicitly? I think not
     } else when intr.type_is_float(T) {
@@ -21,7 +21,7 @@ push_value :: proc(L: ^lua.State, val: $T) {
         lua.pushcstring(L, val)
     } else when T == string {
         lua.pushstring(L, val)
-    } else when intr.type_is_struct(T) {
+    } else when intr.type_is_struct(T) || intr.type_is_pointer(T) {
         metatableStr, found := global_state.udata_metatable_mapping[T]
         assert(found, "Struct metatable was not found. Did you mark it with @(LuaExport)?")
         udata := transmute(^T)lua.newuserdata(L, size_of(T))
@@ -76,4 +76,11 @@ to_value :: proc(L: ^lua.State, #any_int stack_pos: int, val: ^$T) {
             }
         }
     }
+}
+
+
+set_global :: proc(L: ^lua.State, name: string, val: $T) {
+    push_value(L, val)
+    cname := strings.clone_to_cstring(name, context.temp_allocator)
+    lua.setglobal(L, cname)
 }

@@ -181,7 +181,7 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
         write_string(sb, "_ref")
         write_string(sb, "\n    ")
 
-        write_string(sb, "expStruct.ref_meta = refMeta")
+        write_string(sb, "expStruct.light_meta = refMeta")
         write_string(sb, "\n    ")
     }
 
@@ -208,7 +208,7 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
         write_string(sb, s.name)
         write_string(sb, "\n    ")
 
-        write_string(sb, "expStruct.copy_meta = copyMeta")
+        write_string(sb, "expStruct.full_meta = copyMeta")
         write_string(sb, "\n    ")
         write_string(sb, "\n    ")
 

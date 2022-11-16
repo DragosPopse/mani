@@ -53,8 +53,12 @@ main :: proc() {
     mani.export_all(L, mani.global_state)
     obj := make_object(32)
     
+    mani.set_global(L, "global_obj", &obj)
+
+
     if luaL.dofile(L, "test/test.lua") != lua.OK {
         fmt.printf("LuaError: %s", lua.tostring(L, -1))
     }
-    //half_object_print(obj)
+
+    half_object_print(obj)
 }
