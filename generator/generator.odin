@@ -10,9 +10,9 @@ DEFAULT_PROC_ATTRIBUTES := Attributes {
 }
 
 DEFAULT_STRUCT_ATTRIBUTES := Attributes {
-    "Mode" = Attributes {
-        "Ref" = nil, 
-        "Copy" = nil,
+    "Type" = Attributes {
+        "Full" = nil, 
+        "Light" = nil,
     },
 }
 
@@ -118,9 +118,9 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
     using strings
 
     exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_STRUCT_ATTRIBUTES
-    exportMode := exportAttribs["Mode"].(Attributes)  
-    allowRef := "Ref" in exportMode
-    allowCopy := "Copy" in exportMode
+    udataType := exportAttribs["Type"].(Attributes)  
+    allowLight := "Light" in udataType
+    allowFull := "Full" in udataType
     
     luaName := exportAttribs["Name"].(String) if "Name" in exportAttribs else s.name
 
@@ -154,7 +154,7 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
     write_string(sb, s.name)
     write_string(sb, "\n    ")
 
-    if allowRef {
+    if allowLight {
         write_string(sb, "\n    ")
         write_string(sb, "refMeta: mani.MetatableData\n    ")
         write_string(sb, "refMeta.name = ")
@@ -185,7 +185,7 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
         write_string(sb, "\n    ")
     }
 
-    if allowCopy {
+    if allowFull {
         write_string(sb, "\n    ")
         write_string(sb, "copyMeta: mani.MetatableData\n    ")
         write_string(sb, "copyMeta.name = ")
@@ -228,11 +228,12 @@ write_lua_index :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExp
     using strings
     exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_STRUCT_ATTRIBUTES
     luaFields := exportAttribs["Fields"].(Attributes) if "Fields" in exportAttribs else nil
-    exportMode := exportAttribs["Mode"].(Attributes) 
-    allowRef := "Ref" in exportMode
-    allowCopy := "Copy" in exportMode
+    udataType := exportAttribs["Type"].(Attributes)  
+    allowLight := "Light" in udataType
+    allowFull := "Full" in udataType
 
-    if allowCopy {
+
+    if allowFull {
         //write_string(sb, "_mani_index_")
         //write_string(sb, s.name)
         //write_string(sb, " :: proc(L: ^lua.State) {\n    ")
@@ -290,7 +291,7 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 `       )
     }
 
-    if allowRef {
+    if allowLight {
         fmt.sbprintf(sb, 
 `
 _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
@@ -348,11 +349,12 @@ write_lua_newindex :: proc(sb: ^strings.Builder, exports: FileExports, s: Struct
     using strings
     exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_STRUCT_ATTRIBUTES
     luaFields := exportAttribs["Fields"].(Attributes) if "Fields" in exportAttribs else nil
-    exportMode := exportAttribs["Mode"].(Attributes) 
-    allowRef := "Ref" in exportMode
-    allowCopy := "Copy" in exportMode
+    udataType := exportAttribs["Type"].(Attributes)  
+    allowLight := "Light" in udataType
+    allowFull := "Full" in udataType
 
-    if allowCopy {
+
+    if allowFull {
         fmt.sbprintf(sb, 
 `
 _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
@@ -404,7 +406,7 @@ _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 `       )
     }
 
-    if allowRef {
+    if allowLight {
         fmt.sbprintf(sb, 
 `
 _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{

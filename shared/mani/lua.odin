@@ -54,25 +54,25 @@ to_value :: proc(L: ^lua.State, #any_int stack_pos: int, val: ^$T) {
     } else when Base == string {
         val^ = lua.tostring(L, cast(i32)stack_pos)
     } else {
-        cmeta, canCopy := global_state.udata_metatable_mapping[Base]
-        rmeta, canRef := global_state.udata_metatable_mapping[Ptr]
-        assert(canCopy || canRef, "Metatable not found for type")
+        fmeta, hasFulldata := global_state.udata_metatable_mapping[Base]
+        lmeta, hasLightdata := global_state.udata_metatable_mapping[Ptr]
+        assert(hasFulldata || hasLightdata, "Metatable not found for type")
 
         rawdata: rawptr
     
-        cdata := cast(Ptr)luaL.testudata(L, cast(i32)stack_pos, cmeta) if canCopy else nil
-        rdata := cast(^Ptr)luaL.testudata(L, cast(i32)stack_pos, rmeta) if canRef else nil
+        fdata := cast(Ptr)luaL.testudata(L, cast(i32)stack_pos, fmeta) if hasFulldata else nil
+        ldata := cast(^Ptr)luaL.testudata(L, cast(i32)stack_pos, lmeta) if hasLightdata else nil
         when intr.type_is_pointer(type_of(val^)) { 
-            if cdata != nil {
-                val^ = cdata
+            if fdata != nil {
+                val^ = fdata
             } else {
-                val^ = rdata^
+                val^ = ldata^
             }
         } else {
-            if cdata != nil {
-                val^ = cdata^
+            if fdata != nil {
+                val^ = fdata^
             } else {
-                val^ = rdata^^
+                val^ = ldata^^
             }
         }
     }

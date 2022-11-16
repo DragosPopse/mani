@@ -8,7 +8,7 @@ import "shared:mani"
 
 @(LuaExport = {
     Name = "half_object",
-    Mode = { Ref, Copy },
+    Type = { Full, Light },
     Fields = {
         value = "val",
     },
