@@ -34,7 +34,13 @@ push_value :: proc(L: ^lua.State, val: $T) {
 }
 
 to_value :: proc(L: ^lua.State, #any_int stack_pos: int, val: ^$T) {
-    Base :: type_of(val^)
+    when intr.type_is_pointer(type_of(val^)) {
+        Base :: type_of(val^^)
+    } else {
+        Base :: type_of(val^)
+    }
+    #assert(!intr.type_is_pointer(Base), "Pointer to pointer not allowed in to_value")
+
     when intr.type_is_integer(Base) {
         val^ = cast(Base)lua.tointeger(L, cast(i32)stack_pos)
     } else when intr.type_is_float(Base) {
@@ -46,10 +52,24 @@ to_value :: proc(L: ^lua.State, #any_int stack_pos: int, val: ^$T) {
     } else when Base == string {
         val^ = lua.tostring(L, cast(i32)stack_pos)
     } else {
-        meta, ok := global_state.udata_metatable_mapping[Base] // Is this correct?
+
+        when intr.type_is_pointer(type_of(val^)) {
+            cmeta, canCopy := global_state.udata_metatable_mapping[Base^]
+            rmeta, canRef := global_state.udata_metatable_mapping[Base]
+        } else {
+            cmeta, canCopy := global_state.udata_metatable_mapping[Base]
+            rmeta, canRef := global_state.udata_metatable_mapping[^Base]
+        }
         
-        assert(ok, "Metatable not found for type")
-        data := cast(^T)luaL.checkudata(L, cast(i32)stack_pos, meta) // Note(Dragos) This must be wrong 
-        val^ = data^
+        assert(canCopy || canRef, "Metatable not found for type")
+
+        rawdata: rawptr
+        cdata := cast(^Base)luaL.testudata(L, cast(i32)stack_pos, cmeta) if canCopy else nil
+        rdata := cast(^^Base)luaL.testudata(L, cast(i32)stack_pos, rmeta) if canRef else nil
+        if cdata != nil {
+            val^ = cdata^
+        } else if rdata != nil {
+            val^ = rdata
+        } 
     }
 }
