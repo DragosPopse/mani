@@ -16,6 +16,7 @@ MetatableData :: struct {
     odin_type: typeid,
     index: lua.CFunction,
     newindex: lua.CFunction,
+    
 }
 
 LuaExport :: struct {
@@ -45,9 +46,10 @@ StructFieldExport :: struct {
 StructExport :: struct {
     using base: LuaExport,
     type: typeid,
-    fields: map[LuaName]StructFieldExport, // This should be LuaName
+    //fields: map[LuaName]StructFieldExport, // Not needed for now
     light_meta: Maybe(MetatableData),
     full_meta: Maybe(MetatableData),
+    methods: map[LuaName]lua.CFunction,
 }
 
 // TODO(Add lua state in here aswell) (then we can have a single init function instead of export_all)

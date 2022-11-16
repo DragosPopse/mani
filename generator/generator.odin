@@ -153,6 +153,29 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
     write_string(sb, "expStruct.type = ")
     write_string(sb, s.name)
     write_string(sb, "\n    ")
+    
+    if methodsAttrib, found := exportAttribs["Methods"]; found {
+        write_string(sb, "expStruct.methods = make(map[mani.LuaName]lua.CFunction)")
+        write_string(sb, "\n    ")
+        methods := methodsAttrib.(Attributes) 
+        for odinName, attribVal in methods {
+            luaName: string
+            if name, ok := attribVal.(String); ok {
+                luaName = name
+            } else {
+                luaName = odinName
+            }
+            fullName := strings.concatenate({"_mani_", odinName}, context.temp_allocator)
+            write_string(sb, "expStruct.methods[")
+            write_rune(sb, '"')
+            write_string(sb, luaName)
+            write_rune(sb, '"')
+            write_string(sb, "] = ")
+            write_string(sb, fullName)
+            write_string(sb, "\n    ")
+        }
+        
+    }
 
     if allowLight {
         write_string(sb, "\n    ")
