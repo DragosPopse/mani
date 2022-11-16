@@ -465,7 +465,9 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
             #partial switch x in rval.type.derived {
                 case ^ast.Ident: {
                     resType = x.name
-                    resName = rval.names[0].derived.(^ast.Ident).name
+                    if len(rval.names) != 0 {
+                        resName = rval.names[0].derived.(^ast.Ident).name
+                    }
                 }
                 case ^ast.Selector_Expr: {
                     if len(rval.names) != 0 {

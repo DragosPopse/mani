@@ -25,7 +25,7 @@ HalfObject :: struct {
 }
 
 @(LuaExport)
-make_object :: proc(v: int) -> (r: HalfObject) {
+make_object :: proc(v: int) -> HalfObject {
     return {
         value = v,
         hidden = v + 1,
