@@ -13,14 +13,18 @@ import "shared:mani"
         value = "val",
     },
     Methods = {
-        half_object_print = "print", // I could store a map of ProcExports inside the generator
+        // this could also be { print = half_object_print }
+        // would allow reuse of functions
+        // { "print" = half_object_print } would require some changes in parser
+        half_object_print = "print",  
+        mod_object = "mod",
     },
     Metamethods = {
-        //__tostring = half_object_print,
+        __tostring = half_object_tostring,
     },
 })
 HalfObject :: struct {
-    value: int, // This could work
+    value: int, 
     hidden: int,
 }
 
@@ -37,6 +41,11 @@ mod_object :: proc(o: ^HalfObject, v: int) {
     o.value = v
 }
 
+@(LuaExport)
+half_object_tostring :: proc(using v: HalfObject) -> string {
+    return fmt.tprintf("HalfObject {{%d, %d}}", value, hidden)
+}
+
 
 @(LuaExport = {
     Name = "print_object",
@@ -51,13 +60,13 @@ main :: proc() {
     L := luaL.newstate()
     luaL.openlibs(L)
     mani.export_all(L, mani.global_state)
-    obj := make_object(32)
+    obj := make_object(20)
     
     mani.set_global(L, "global_obj", &obj)
 
 
     if luaL.dofile(L, "test/test.lua") != lua.OK {
-        fmt.printf("LuaError: %s", lua.tostring(L, -1))
+        fmt.printf("LuaError: %s\n", lua.tostring(L, -1))
     }
 
     half_object_print(obj)

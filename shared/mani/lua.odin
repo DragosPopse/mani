@@ -21,6 +21,8 @@ push_value :: proc(L: ^lua.State, val: $T) {
         lua.pushcstring(L, val)
     } else when T == string {
         lua.pushstring(L, val)
+    } else when intr.type_is_proc(T) {
+        lua.pushcfunction(L, val)
     } else when intr.type_is_struct(T) || intr.type_is_pointer(T) {
         metatableStr, found := global_state.udata_metatable_mapping[T]
         assert(found, "Struct metatable was not found. Did you mark it with @(LuaExport)?")

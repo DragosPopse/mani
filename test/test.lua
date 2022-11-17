@@ -1,5 +1,11 @@
 print("Whatsup")
 
+obj = make_object(23)
 
-print_object(global_obj)
-mod_object(global_obj, 100)
+global_obj:mod(100)
+
+print(tostring(global_obj))
+
+
+
+

@@ -16,7 +16,7 @@ MetatableData :: struct {
     odin_type: typeid,
     index: lua.CFunction,
     newindex: lua.CFunction,
-    
+    methods: map[cstring]lua.CFunction,
 }
 
 LuaExport :: struct {
@@ -84,7 +84,7 @@ add_struct :: proc(s: StructExport) {
     }
 }
 
-
+import "core:fmt"
 export_all :: proc(L: ^lua.State, using state: State) {
     if default_context == nil {
         default_context = runtime.default_context 
@@ -98,6 +98,16 @@ export_all :: proc(L: ^lua.State, using state: State) {
             lua.setfield(L, -2, "__index")
             lua.pushcfunction(L, light.newindex)
             lua.setfield(L, -2, "__newindex")
+            
+
+            if light.methods != nil {
+                for name, method in light.methods {
+                    fmt.printf("We here %s\n", name)
+                    lua.pushcfunction(L, method)
+                    lua.setfield(L, -2, name)
+                }
+            }
+
             lua.pop(L, 1)
         }
         if full, ok := full_meta.?; ok {
@@ -107,6 +117,15 @@ export_all :: proc(L: ^lua.State, using state: State) {
             lua.setfield(L, -2, "__index")
             lua.pushcfunction(L, full.newindex)
             lua.setfield(L, -2, "__newindex")
+
+            if full.methods != nil {
+                for name, method in full.methods {
+                    fmt.printf("We here %s\n", name)
+                    lua.pushcfunction(L, method)
+                    lua.setfield(L, -2, name)
+                }
+            }
+
             lua.pop(L, 1)
         }
     }

@@ -204,6 +204,18 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
         write_string(sb, "_ref")
         write_string(sb, "\n    ")
 
+        if metaAttrib, found := exportAttribs["Metamethods"]; found {
+            write_string(sb, "refMeta.methods = make(map[cstring]lua.CFunction)")
+            write_string(sb, "\n    ")
+            methods := metaAttrib.(Attributes)
+            for name, val in methods {
+                odinProc := val.(Identifier)
+                fmt.sbprintf(sb, "refMeta.methods[\"%s\"] = _mani_%s", name, cast(String)odinProc)
+                write_string(sb, "\n    ")
+            }
+        }
+
+
         write_string(sb, "expStruct.light_meta = refMeta")
         write_string(sb, "\n    ")
     }
@@ -230,6 +242,17 @@ write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: Str
         write_string(sb, "_mani_newindex_")
         write_string(sb, s.name)
         write_string(sb, "\n    ")
+
+        if metaAttrib, found := exportAttribs["Metamethods"]; found {
+            write_string(sb, "copyMeta.methods = make(map[cstring]lua.CFunction)")
+            write_string(sb, "\n    ")
+            methods := metaAttrib.(Attributes)
+            for name, val in methods {
+                odinProc := val.(Identifier)
+                fmt.sbprintf(sb, "copyMeta.methods[\"%s\"] = _mani_%s", name, cast(String)odinProc)
+                write_string(sb, "\n    ")
+            }
+        }
 
         write_string(sb, "expStruct.full_meta = copyMeta")
         write_string(sb, "\n    ")
@@ -305,6 +328,25 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
             }
         }
 
+        if methodsAttrib, found := exportAttribs["Methods"]; found {
+            methods := methodsAttrib.(Attributes)
+            for odinProc, luaNameAttrib in methods {
+                luaName: string 
+                if name, found := luaNameAttrib.(String); found {
+                    luaName = name 
+                } else {
+                    luaName = odinProc
+                }
+                fmt.sbprintf(sb, 
+`        
+        case "{0:s}": {{
+            mani.push_value(L, _mani_{1:s})
+            return 1
+        }}
+`,    luaName, odinProc)
+            }
+        }
+
         fmt.sbprintf(sb, 
 `
     }}
@@ -319,7 +361,7 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 `
 _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
     context = mani.default_context()
-    udata := transmute(^^{1:s})luaL.checkudata(L, 1, "{0:s}")
+    udata := transmute(^^{1:s})luaL.checkudata(L, 1, "{0:s}_ref")
     key := lua.tostring(L, 2)
     switch key {{
         case: {{
@@ -354,6 +396,25 @@ _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
             return 1
         }}
 `,    name, field.odin_name)
+            }
+        }
+
+        if methodsAttrib, found := exportAttribs["Methods"]; found {
+            methods := methodsAttrib.(Attributes)
+            for odinProc, luaNameAttrib in methods {
+                luaName: string 
+                if name, found := luaNameAttrib.(String); found {
+                    luaName = name 
+                } else {
+                    luaName = odinProc
+                }
+                fmt.sbprintf(sb, 
+`        
+        case "{0:s}": {{
+            mani.push_value(L, _mani_{1:s})
+            return 1
+        }}
+`,    luaName, odinProc)
             }
         }
 
