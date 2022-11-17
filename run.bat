@@ -1,3 +1,3 @@
 @echo off
 
-build\mani\mani.exe test
+build\mani\mani.exe mani_config.json

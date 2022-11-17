@@ -4,6 +4,7 @@ import strings "core:strings"
 import fmt "core:fmt"
 import filepath "core:path/filepath"
 import os "core:os"
+import json "core:encoding/json"
 
 DEFAULT_PROC_ATTRIBUTES := Attributes {
     
@@ -37,6 +38,7 @@ package_file_make :: proc(path: string) -> PackageFile {
 
 GeneratorConfig :: struct {
     input_directory: string,
+    meta_directory: string,
     files: map[string]PackageFile,
 }
 
@@ -93,6 +95,24 @@ config_package :: proc(config: ^GeneratorConfig, pkg: string, filename: string) 
     }
 }
 
+config_from_json :: proc(config: ^GeneratorConfig, file: string) {
+    data, ok := os.read_entire_file(file)
+    if !ok {
+        return
+    }
+    defer delete(data)
+
+    obj, err := json.parse(data)
+    if err != .None {
+        return
+    }
+    defer json.destroy_value(obj) 
+
+    root := obj.(json.Object)
+    config.input_directory = root["dir"].(json.String)
+    config.meta_directory = root["meta_dir"].(json.String)
+    
+}
 
 create_config_from_args :: proc() -> (result: GeneratorConfig) {
     result = GeneratorConfig{}
@@ -101,6 +121,7 @@ create_config_from_args :: proc() -> (result: GeneratorConfig) {
         if len(pair) == 1 {
             // Input directory
             result.input_directory = pair[0]
+            config_from_json(&result, pair[0])
         }
     }
     return
