@@ -29,7 +29,7 @@ HalfObject :: struct {
 }
 
 //@param v integer The integer used to make the object
-//@return result HalfObject The object that was made
+//@return HalfObject result The object that was made
 @(LuaExport)
 make_object :: proc(v: int) -> (result: HalfObject) {
     return {

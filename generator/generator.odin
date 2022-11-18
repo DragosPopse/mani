@@ -101,7 +101,7 @@ config_package :: proc(config: ^GeneratorConfig, pkg: string, filename: string) 
         }
         write_string(sb, "\n")
         
-        write_string(luaSb, "---@meta\n")
+        write_string(luaSb, "---@meta\n\n")
     }
 }
 
@@ -575,16 +575,43 @@ _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
 write_struct_meta :: proc(config: ^GeneratorConfig, exports: FileExports, s: StructExport) {
     using strings
     sb := &(&config.files[exports.symbols_package]).lua_builder
-
+    fmt.sbprintf(sb, "---@class %s\n", s.name)
     for comment in s.lua_docs {
         fmt.sbprintf(sb, "---%s\n", comment)
     }
     exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_PROC_ATTRIBUTES
     // This makes LuaExport.Name not enitrely usable, I should map struct names to lua names
     luaName :=  s.name
-    fmt.sbprintf(sb, "%s = {}\n", luaName)
+    fmt.sbprintf(sb, "%s = {{}}\n\n", luaName)
+    
+    if methodsAttrib, found := exportAttribs["Methods"]; found {
+        methods := methodsAttrib.(Attributes)
+        for odinProc, val in methods {
+            luaName: string 
+            if name, found := val.(String); found {
+                luaName = name 
+            } else {
+                luaName = odinProc
+            }
 
-    // I need to map the procs to get the comments anyway
+            procExport := exports.symbols[odinProc].(ProcedureExport)
+            for comment in procExport.lua_docs {
+                fmt.sbprintf(sb, "---%s\n", comment)
+            }
+
+            fmt.sbprintf(sb, "function %s:%s(", s.name, luaName)
+
+            // We skip the first parameter, assuming it's the struct itself
+            // Is this legit? Needs testing
+            params := procExport.param_names[1:] 
+            for name, i in params {
+                write_string(sb, name)
+                if i != len(params) - 1 do write_string(sb, ", ")
+            }
+        
+            write_string(sb, ") end\n\n")
+        }
+    }
 }
 
 write_proc_meta :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport) {
@@ -598,14 +625,13 @@ write_proc_meta :: proc(config: ^GeneratorConfig, exports: FileExports, fn: Proc
     luaName := exportAttribs["Name"].(String) if "Name" in exportAttribs else fn.name
     fmt.sbprintf(sb, "function %s(", luaName)
     
-    for name, i in fn.param_names[:len(fn.param_names) - 1] {
+    for name, i in fn.param_names {
         write_string(sb, name)
-        write_string(sb, ", ")
+        if i != len(fn.param_names) - 1 do write_string(sb, ", ")
+
     }
-    if len(fn.param_names) != 0 {
-        write_string(sb, fn.param_names[len(fn.param_names) - 1])
-    }
-    write_string(sb, ") end\n")
+
+    write_string(sb, ") end\n\n")
 }
 
 generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport, filename: string) {
@@ -752,6 +778,7 @@ generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
 
             case StructExport: {
                 generate_struct_lua_wrapper(config, exports, x, exports.relpath)
+                write_struct_meta(config, exports, x)
             }
         }
     }

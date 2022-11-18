@@ -1,10 +1,10 @@
 print("Whatsup")
 
-obj = make_object(23)
+local obj = make_object(23)
 
-global_obj:mod(100)
+obj:mod(322)
 
-print(tostring(global_obj))
+print(tostring(obj))
 
 
 
