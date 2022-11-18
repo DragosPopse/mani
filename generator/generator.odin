@@ -26,6 +26,7 @@ PackageFile :: struct {
     // Lua LSP metadata
     lua_filename: string,
     lua_builder: strings.Builder,
+    lua_types: map[string]string, // Key: odin type
 }
 
 package_file_make :: proc(path: string, luaPath: string) -> PackageFile {
@@ -36,6 +37,7 @@ package_file_make :: proc(path: string, luaPath: string) -> PackageFile {
 
         lua_builder = strings.builder_make(),
         lua_filename = luaPath,
+        lua_types = make(map[string]string)
     }
 }
 

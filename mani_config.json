@@ -2,9 +2,21 @@
     "dir": "test",
     "meta_dir": "test",
 
-    "experimental": {
-        "integers": [
+    "types": {
+        "integer": [
             "c.int", "int", "i32", "i64"
+        ],
+
+        "number": [
+            "c.float", "f32", "f64", "f16"
+        ],
+
+        "string": [
+            "string", "cstring"
+        ],
+
+        "boolean": [
+            "bool", "c.bool"
         ]
     }
 }

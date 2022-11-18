@@ -6,6 +6,7 @@ import "shared:luaL"
 import "shared:mani"
 
 
+//@field val integer The value of the object
 @(LuaExport = {
     //Name = "half_object", // maybe use this as metatable name
     Type = { Full, Light },
