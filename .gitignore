@@ -16,10 +16,11 @@
 !/generator/**
 !shared/**
 
+# Mani generations
 *.generated.odin
+*.lsp.lua
 
 !copy_to_shared.bat
 !test.bat
 
 !mani_config.json
-*.lsp.lua
