@@ -22,4 +22,4 @@
 !test.bat
 
 !mani_config.json
-!*.lsp.lua
+*.lsp.lua
