@@ -98,13 +98,13 @@ FileImport :: struct {
 FileExports :: struct {
     symbols_package: string,
     relpath: string,
-    symbols: [dynamic]SymbolExport,
+    symbols: map[string]SymbolExport,
     imports: map[string]FileImport,
 }
 
 file_exports_make :: proc(allocator := context.allocator) -> FileExports {
     result := FileExports{}
-    result.symbols = make([dynamic]SymbolExport, allocator)
+    result.symbols = make(map[string]SymbolExport, 128, allocator)
     result.imports = make(map[string]FileImport, 128, allocator)
     return result
 }
@@ -202,7 +202,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                     exportProc, err := parse_proc(root, decl, v)
                     if err == .Export {
                         exportProc.lua_docs = parse_lua_annotations(root, decl, commentMapping)
-                        append(&symbol_exports.symbols, exportProc) 
+                        symbol_exports.symbols[exportProc.name] = exportProc
                     }
                     
                 }
@@ -211,7 +211,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                     exportStruct, err := parse_struct(root, decl, v) 
                     if err == .Export {
                         exportStruct.lua_docs = parse_lua_annotations(root, decl, commentMapping)
-                        append(&symbol_exports.symbols, exportStruct)
+                        symbol_exports.symbols[exportStruct.name] = exportStruct
                     }
                 }
             }

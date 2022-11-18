@@ -7,7 +7,7 @@ import "shared:mani"
 
 
 @(LuaExport = {
-    Name = "half_object",
+    //Name = "half_object", // maybe use this as metatable name
     Type = { Full, Light },
     Fields = {
         value = "val",
@@ -28,8 +28,10 @@ HalfObject :: struct {
     hidden: int,
 }
 
+//@param v integer The integer used to make the object
+//@return result HalfObject The object that was made
 @(LuaExport)
-make_object :: proc(v: int) -> HalfObject {
+make_object :: proc(v: int) -> (result: HalfObject) {
     return {
         value = v,
         hidden = v + 1,

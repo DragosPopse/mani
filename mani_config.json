@@ -1,4 +1,10 @@
 {
     "dir": "test",
-    "meta_dir": "test"
+    "meta_dir": "test",
+
+    "experimental": {
+        "integers": [
+            "c.int", "int", "i32", "i64", "*.int"
+        ]
+    }
 }

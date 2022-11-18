@@ -28,11 +28,14 @@ PackageFile :: struct {
     lua_builder: strings.Builder,
 }
 
-package_file_make :: proc(path: string) -> PackageFile {
+package_file_make :: proc(path: string, luaPath: string) -> PackageFile {
     return PackageFile {
         builder = strings.builder_make(), 
         filename = path,
         imports = make(map[string]FileImport),
+
+        lua_builder = strings.builder_make(),
+        lua_filename = luaPath,
     }
 }
 
@@ -50,11 +53,16 @@ config_package :: proc(config: ^GeneratorConfig, pkg: string, filename: string) 
 
         
         path := filepath.dir(filename, context.temp_allocator)
+    
         name := filepath.stem(filename)
         filename := strings.concatenate({path, "/", pkg, ".generated.odin"})
-        config.files[pkg] = package_file_make(filename)
+        luaFilename := strings.concatenate({config.meta_directory, "/", pkg, ".lsp.lua"})
+
+        config.files[pkg] = package_file_make(filename, luaFilename)
         sb := &(&config.files[pkg]).builder
         file := &config.files[pkg]
+
+        luaSb := &(&config.files[pkg]).lua_builder
 
         write_string(sb, "package ")
         write_string(sb, pkg)
@@ -92,6 +100,8 @@ config_package :: proc(config: ^GeneratorConfig, pkg: string, filename: string) 
             write_string(sb, "\n")
         }
         write_string(sb, "\n")
+        
+        write_string(luaSb, "---@meta\n")
     }
 }
 
@@ -562,7 +572,41 @@ _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
     }
 }
 
+write_struct_meta :: proc(config: ^GeneratorConfig, exports: FileExports, s: StructExport) {
+    using strings
+    sb := &(&config.files[exports.symbols_package]).lua_builder
 
+    for comment in s.lua_docs {
+        fmt.sbprintf(sb, "---%s\n", comment)
+    }
+    exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_PROC_ATTRIBUTES
+    // This makes LuaExport.Name not enitrely usable, I should map struct names to lua names
+    luaName :=  s.name
+    fmt.sbprintf(sb, "%s = {}\n", luaName)
+
+    // I need to map the procs to get the comments anyway
+}
+
+write_proc_meta :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport) {
+    using strings
+    sb := &(&config.files[exports.symbols_package]).lua_builder
+
+    for comment in fn.lua_docs {
+        fmt.sbprintf(sb, "---%s\n", comment)
+    }
+    exportAttribs := fn.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_PROC_ATTRIBUTES
+    luaName := exportAttribs["Name"].(String) if "Name" in exportAttribs else fn.name
+    fmt.sbprintf(sb, "function %s(", luaName)
+    
+    for name, i in fn.param_names[:len(fn.param_names) - 1] {
+        write_string(sb, name)
+        write_string(sb, ", ")
+    }
+    if len(fn.param_names) != 0 {
+        write_string(sb, fn.param_names[len(fn.param_names) - 1])
+    }
+    write_string(sb, ") end\n")
+}
 
 generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport, filename: string) {
     using strings
@@ -693,15 +737,17 @@ generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
     config_package(config, exports.symbols_package, exports.relpath)
     file := &config.files[exports.symbols_package]
     
+    
     for _, imp in exports.imports {
         add_import(file, imp)
     }
 
-    for exp in exports.symbols {
+    for k, exp in exports.symbols {
         
         switch x in exp {
             case ProcedureExport: {
                 generate_proc_lua_wrapper(config, exports, x, exports.relpath)
+                write_proc_meta(config, exports, x)
             }
 
             case StructExport: {
