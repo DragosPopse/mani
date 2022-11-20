@@ -131,17 +131,17 @@ make_vec4 :: proc(x: int, y: int, z: int, w: int) -> Vec4 {
 
 @(LuaExport)
 vec4_tostring :: proc(v: Vec4) -> string {
-    return fmt.tprintf("{{%f, %f, %f, %f}}", v.x, v.y, v.z, v.w)
+    return fmt.tprintf("{{%d, %d, %d, %d}}", v.x, v.y, v.z, v.w)
 }
 
 @(LuaExport)
 vec3_tostring :: proc(v: Vec3) -> string {
-    return fmt.tprintf("{{%f, %f, %f}}", v.x, v.y, v.z)
+    return fmt.tprintf("{{%d, %d, %d}}", v.x, v.y, v.z)
 }
 
 @(LuaExport)
 vec2_tostring :: proc(v: Vec2) -> string {
-    return fmt.tprintf("{{%f, %f}}", v.x, v.y)
+    return fmt.tprintf("{{%d, %d}}", v.x, v.y)
 }
 
 main :: proc() {
@@ -150,16 +150,16 @@ main :: proc() {
     //types :: [?]typeid{type_of(Vec3), type_of(Vec2)}
     L := luaL.newstate()
     luaL.openlibs(L)
-    generate_vecs("Vec4", _mani_vec4_tostring, Vec4, 4, f64, "xyzwrgba", Vec2, Vec3, Vec4)
-    generate_vecs("Vec3", _mani_vec3_tostring, Vec3, 3, f64, "xyzrgb", Vec2, Vec3, Vec4)
-    generate_vecs("Vec2", _mani_vec2_tostring, Vec3, 3, f64, "xyrg", Vec2, Vec3, Vec4)
+    generate_vecs("Vec4", _mani_vec4_tostring, Vec4, 4, int, "xyzwrgba", Vec2, Vec3, Vec4)
+    generate_vecs("Vec3", _mani_vec3_tostring, Vec3, 3, int, "xyzrgb", Vec2, Vec3, Vec4)
+    generate_vecs("Vec2", _mani_vec2_tostring, Vec2, 2, int, "xyrg", Vec2, Vec3, Vec4)
     mani.export_all(L, mani.global_state)
     obj := make_object(20)
     
     v: Vec3 = {1, 2, 3}
     v2 := [3]int{} 
     v2 = v
-    printf("%s\n", vec3_tostring(v2))
+
     //mani.set_global(L, "global_obj", &obj)
     //mani.push_value(L, v)
 
@@ -167,5 +167,5 @@ main :: proc() {
         fmt.printf("LuaError: %s\n", lua.tostring(L, -1))
     }
 
-    half_object_print(obj)
+    
 }

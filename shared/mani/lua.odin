@@ -25,7 +25,7 @@ push_value :: proc(L: ^lua.State, val: $T) {
         lua.pushcfunction(L, val)
     } else when intr.type_is_struct(T) || intr.type_is_pointer(T) || intr.type_is_array(T) {
         metatableStr, found := global_state.udata_metatable_mapping[T]
-        assert(found, "Struct metatable was not found. Did you mark it with @(LuaExport)?")
+        assert(found, fmt.tprintf("Metatable for %T was not found. Did you mark it with @(LuaExport)?", val))
         udata := transmute(^T)lua.newuserdata(L, size_of(T))
         udata^ = val
         luaL.getmetatable(L, metatableStr)
@@ -46,15 +46,15 @@ to_value :: proc(L: ^lua.State, #any_int stack_pos: int, val: ^$T) {
     #assert(!intr.type_is_pointer(Base), "Pointer to pointer not allowed in to_value")
 
     when intr.type_is_integer(Base) {
-        val^ = cast(Base)lua.checkinteger(L, cast(i32)stack_pos)
+        val^ = cast(Base)luaL.checkinteger(L, cast(i32)stack_pos)
     } else when intr.type_is_float(Base) {
-        val^ = cast(Base)lua.checknumber(L, cast(i32)stack_pos) 
+        val^ = cast(Base)luaL.checknumber(L, cast(i32)stack_pos) 
     } else when intr.type_is_boolean(Base) {
-        val^ = cast(Base)lua.checkboolean(L, cast(i32)stack_pos) 
+        val^ = cast(Base)luaL.checkboolean(L, cast(i32)stack_pos) 
     } else when Base == cstring {
         val^ = strings.unsafe_string_to_cstring(lua.checkstring(L, cast(i32)stack_pos)) // we know its a cstring
     } else when Base == string {
-        val^ = lua.checkstring(L, cast(i32)stack_pos)
+        val^ = luaL.checkstring(L, cast(i32)stack_pos)
     } else {
         fmeta, hasFulldata := global_state.udata_metatable_mapping[Base]
         lmeta, hasLightdata := global_state.udata_metatable_mapping[Ptr]

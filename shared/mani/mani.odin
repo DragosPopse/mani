@@ -102,7 +102,6 @@ export_all :: proc(L: ^lua.State, using state: State) {
 
             if light.methods != nil {
                 for name, method in light.methods {
-                    fmt.printf("We here %s\n", name)
                     lua.pushcfunction(L, method)
                     lua.setfield(L, -2, name)
                 }
@@ -120,7 +119,6 @@ export_all :: proc(L: ^lua.State, using state: State) {
 
             if full.methods != nil {
                 for name, method in full.methods {
-                    fmt.printf("We here %s\n", name)
                     lua.pushcfunction(L, method)
                     lua.setfield(L, -2, name)
                 }

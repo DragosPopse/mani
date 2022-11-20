@@ -1,14 +1,10 @@
-print("Whatsup")
 
-local obj = make_object(23)
-
+-- lua
 local v = make_vec4(10, 2, 3, 4)
 
-print(tostring(v))
+print(tostring(v.xy))
+print(tostring(v.yxx))
 
---obj:mod(322)
-
---print(tostring(obj))
 
 
 
