@@ -10,6 +10,7 @@ import filepath "core:path/filepath"
 import "core:log"
 import "../shared/mani"
 import "core:reflect"
+import "core:strconv"
 
 LUA_PROC_ATTRIBUTES := map[string]bool {
     "Name" = true,
@@ -75,6 +76,13 @@ StructExport :: struct {
     fields: map[string]StructField, // Key: odin_name
 }
 
+ArrayExport :: struct {
+    using base: NodeExport,
+    name: string,
+    len: int,
+    value_type: string,
+}
+
 ProcedureExport :: struct {
     using base: NodeExport,
     name: string,
@@ -88,6 +96,7 @@ ProcedureExport :: struct {
 SymbolExport :: union {
     ProcedureExport,
     StructExport,
+    ArrayExport,
 }
 
 FileImport :: struct {
@@ -214,6 +223,27 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                         symbol_exports.symbols[exportStruct.name] = exportStruct
                     }
                 }
+
+                case ^ast.Distinct_Type: {
+                    fmt.printf("Distinct types not yet supported\n")
+                    /*#partial switch x in v.derived {
+                        case ^ast.Array_Type: {
+                            exportArr, err := parse_array(root, decl, x)
+                            if err == .Export {
+                                exportArr.lua_docs = parse_lua_annotations(root, decl, commentMapping)
+                                symbol_exports.symbols[exportArr.name] = exportArr
+                            }
+                        }
+                    }*/
+                }
+
+                case ^ast.Array_Type: {
+                    exportArr, err := parse_array(root, decl, v)
+                    if err == .Export {
+                        exportArr.lua_docs = parse_lua_annotations(root, decl, commentMapping)
+                        symbol_exports.symbols[exportArr.name] = exportArr
+                    }
+                }
             }
 
          
@@ -262,7 +292,7 @@ validate_proc_attributes :: proc(proc_decl: ^ast.Proc_Lit, attribs: Attributes) 
 }
 
 validate_struct_attributes :: proc(struct_decl: ^ast.Struct_Type, attribs: Attributes) -> (err: AttribErr, msg: Maybe(string)) {
-     if LUAEXPORT_STR not_in attribs {
+    if LUAEXPORT_STR not_in attribs {
         return .Skip, nil
     }
 
@@ -272,6 +302,16 @@ validate_struct_attributes :: proc(struct_decl: ^ast.Struct_Type, attribs: Attri
     return .Export, nil
 }
 
+validate_array_attributes :: proc(arr_decl: ^ast.Array_Type, attribs: Attributes) -> (err: AttribErr, msg: Maybe(string)) {
+    if LUAEXPORT_STR not_in attribs {
+        return .Skip, nil
+    }
+
+    exportAttribs := attribs[LUAEXPORT_STR] 
+    
+
+    return .Export, nil
+}
 
 get_attr_name :: proc(root: ^ast.File, elem: ^ast.Expr) -> (name: string) {
     #partial switch x in elem.derived  {
@@ -343,6 +383,23 @@ parse_attrib_val :: proc(root: ^ast.File, elem: ^ast.Expr) -> (result: AttribVal
         }
     }
     return nil
+}
+
+parse_array :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, arr_decl: ^ast.Array_Type, allocator := context.allocator) -> (result: ArrayExport, err: AttribErr) {
+    result.attribs = parse_attributes(root, value_decl)
+
+    if err, msg := validate_array_attributes(arr_decl, result.attribs); err != .Export {
+        return result, err
+    }
+
+    result.name = value_decl.names[0].derived.(^ast.Ident).name
+    result.value_type = arr_decl.elem.derived.(^ast.Ident).name
+    lenLit := arr_decl.len.derived.(^ast.Basic_Lit)
+    lenStr := root.src[lenLit.pos.offset : lenLit.end.offset]
+    result.len, _ = strconv.parse_int(lenStr)
+    fmt.printf("Type: %s; Len: %d", result.name, result.len)
+    err = .Export
+    return
 }
 
 parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: ^ast.Struct_Type, allocator := context.allocator) -> (result: StructExport, err: AttribErr) {

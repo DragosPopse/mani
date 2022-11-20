@@ -147,6 +147,11 @@ generate_struct_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExpor
     write_lua_struct_init(sb, exports, s)
 }
 
+generate_array_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, s: ArrayExport, filename: string) {
+    using strings 
+    sb := &(&config.files[exports.symbols_package]).builder
+}
+
 write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
     using strings
 
@@ -781,6 +786,10 @@ generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
             case StructExport: {
                 generate_struct_lua_wrapper(config, exports, x, exports.relpath)
                 write_struct_meta(config, exports, x)
+            }
+
+            case ArrayExport: {
+
             }
         }
     }

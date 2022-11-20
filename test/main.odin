@@ -23,6 +23,12 @@ import "shared:mani"
     Metamethods = {
         __tostring = half_object_tostring,
     },
+    Getters = {
+
+    },
+    Setters = {
+        
+    },
 })
 HalfObject :: struct {
     value: int, 
@@ -57,16 +63,105 @@ half_object_print :: proc(using v: HalfObject) {
     fmt.printf("My value is %d, and my hidden is %d\n", value, hidden)
 }
 
+@(LuaExport = {
+    Name = "vec2f64",
+    Type = {Light, Full},
+    Style = {Vector, Color},
+    Upcast = {
+        Vec3 = 3,
+        Vec4 = 4,
+    },
+})
+Vec2 :: [2]int 
+
+@(LuaExport = {
+    Name = "vec3f64",
+    Type = {Light, Full},
+    Style = {Vector, Color},
+    Upcast = {
+        Vec4 = 4,
+    },
+    Downcast = {
+        Vec2 = 2,
+    },
+})
+Vec3 :: [3]int
+
+@(LuaExport = {
+    Name = "vec4f64",
+    Type = {Light, Full},
+    Style = {Vector, Color},
+    Downcast = {
+        Vec3 = 3,
+        Vec2 = 2,  
+    },
+})
+Vec4 :: [4]int 
+
+
+
+generate_vecs :: proc($FullName: cstring, tostring: lua.CFunction, $VecType: typeid, $VecLen: int, $ElemType: typeid, $AllowedVals: string, 
+    $Vec2Type: typeid,
+    $Vec3Type: typeid,
+    $Vec4Type: typeid) {
+    expStruct: mani.StructExport
+    expStruct.pkg = "test"
+    expStruct.odin_name = cast(mani.OdinName)FullName
+    expStruct.lua_name = cast(mani.LuaName)FullName
+    expStruct.type = VecType
+    
+    
+    copyMeta: mani.MetatableData
+    copyMeta.name = FullName
+    copyMeta.odin_type = VecType
+    copyMeta.index = mani._gen_vector_index(VecType, VecLen, ElemType, AllowedVals, Vec2Type, Vec3Type, Vec4Type)
+    copyMeta.newindex = mani._gen_vector_newindex(VecType, VecLen, ElemType, AllowedVals, Vec2Type, Vec3Type, Vec4Type)
+    copyMeta.methods = make(map[cstring]lua.CFunction)
+    copyMeta.methods["__tostring"] = tostring
+    expStruct.full_meta = copyMeta
+
+    mani.add_struct(expStruct)
+}
+
+// This seems to not generate correct intellisense
+@(LuaExport)
+make_vec4 :: proc(x: int, y: int, z: int, w: int) -> Vec4 {
+    return {x, y, z, w}
+}
+
+@(LuaExport)
+vec4_tostring :: proc(v: Vec4) -> string {
+    return fmt.tprintf("{{%f, %f, %f, %f}}", v.x, v.y, v.z, v.w)
+}
+
+@(LuaExport)
+vec3_tostring :: proc(v: Vec3) -> string {
+    return fmt.tprintf("{{%f, %f, %f}}", v.x, v.y, v.z)
+}
+
+@(LuaExport)
+vec2_tostring :: proc(v: Vec2) -> string {
+    return fmt.tprintf("{{%f, %f}}", v.x, v.y)
+}
+
 main :: proc() {
     using fmt
-
+    
+    //types :: [?]typeid{type_of(Vec3), type_of(Vec2)}
     L := luaL.newstate()
     luaL.openlibs(L)
+    generate_vecs("Vec4", _mani_vec4_tostring, Vec4, 4, f64, "xyzwrgba", Vec2, Vec3, Vec4)
+    generate_vecs("Vec3", _mani_vec3_tostring, Vec3, 3, f64, "xyzrgb", Vec2, Vec3, Vec4)
+    generate_vecs("Vec2", _mani_vec2_tostring, Vec3, 3, f64, "xyrg", Vec2, Vec3, Vec4)
     mani.export_all(L, mani.global_state)
     obj := make_object(20)
     
-    mani.set_global(L, "global_obj", &obj)
-
+    v: Vec3 = {1, 2, 3}
+    v2 := [3]int{} 
+    v2 = v
+    printf("%s\n", vec3_tostring(v2))
+    //mani.set_global(L, "global_obj", &obj)
+    //mani.push_value(L, v)
 
     if luaL.dofile(L, "test/test.lua") != lua.OK {
         fmt.printf("LuaError: %s\n", lua.tostring(L, -1))

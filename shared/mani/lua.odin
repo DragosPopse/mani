@@ -23,7 +23,7 @@ push_value :: proc(L: ^lua.State, val: $T) {
         lua.pushstring(L, val)
     } else when intr.type_is_proc(T) {
         lua.pushcfunction(L, val)
-    } else when intr.type_is_struct(T) || intr.type_is_pointer(T) {
+    } else when intr.type_is_struct(T) || intr.type_is_pointer(T) || intr.type_is_array(T) {
         metatableStr, found := global_state.udata_metatable_mapping[T]
         assert(found, "Struct metatable was not found. Did you mark it with @(LuaExport)?")
         udata := transmute(^T)lua.newuserdata(L, size_of(T))
@@ -46,15 +46,15 @@ to_value :: proc(L: ^lua.State, #any_int stack_pos: int, val: ^$T) {
     #assert(!intr.type_is_pointer(Base), "Pointer to pointer not allowed in to_value")
 
     when intr.type_is_integer(Base) {
-        val^ = cast(Base)lua.tointeger(L, cast(i32)stack_pos)
+        val^ = cast(Base)lua.checkinteger(L, cast(i32)stack_pos)
     } else when intr.type_is_float(Base) {
-        val^ = cast(Base)lua.tonumber(L, cast(i32)stack_pos) 
+        val^ = cast(Base)lua.checknumber(L, cast(i32)stack_pos) 
     } else when intr.type_is_boolean(Base) {
-        val^ = cast(Base)lua.toboolean(L, cast(i32)stack_pos) 
+        val^ = cast(Base)lua.checkboolean(L, cast(i32)stack_pos) 
     } else when Base == cstring {
-        val^ = strings.unsafe_string_to_cstring(lua.tostring(L, cast(i32)stack_pos)) // we know its a cstring
+        val^ = strings.unsafe_string_to_cstring(lua.checkstring(L, cast(i32)stack_pos)) // we know its a cstring
     } else when Base == string {
-        val^ = lua.tostring(L, cast(i32)stack_pos)
+        val^ = lua.checkstring(L, cast(i32)stack_pos)
     } else {
         fmeta, hasFulldata := global_state.udata_metatable_mapping[Base]
         lmeta, hasLightdata := global_state.udata_metatable_mapping[Ptr]
@@ -85,4 +85,110 @@ set_global :: proc(L: ^lua.State, name: string, val: $T) {
     push_value(L, val)
     cname := strings.clone_to_cstring(name, context.temp_allocator)
     lua.setglobal(L, cname)
+}
+
+// ElemType can be type_of(vec[0])
+_gen_vector_index :: proc($VecType: typeid, $VecLen: int, $ElemType: typeid, $AllowedVals: string, $Vec2Type: typeid, $Vec3Type: typeid, $Vec4Type: typeid) -> lua.CFunction {
+    return proc "c" (L: ^lua.State) -> c.int {
+
+        context = default_context()
+        udata: VecType
+        to_value(L, 1, &udata)
+        // Note(Dragos): It should also accept indices
+        key := lua.tostring(L, 2)
+        
+        assert(len(key) <= 4, "Vectors can only be swizzled up to 4 elements")
+
+        result: Vec4Type
+        for r, i in key {
+            if idx := strings.index_rune(AllowedVals, r); idx != -1 {
+                arrIdx := idx % VecLen 
+                result[i] = udata[arrIdx]
+            }
+        }
+
+        switch len(key) {
+            case 1: {
+                push_value(L, result.x)
+            }
+
+            case 2: {
+                push_value(L, result.xy)
+            }
+
+            case 3: {
+                push_value(L, result.xyz)
+            }
+
+            case 4: {
+                push_value(L, result)
+            }
+
+            case: {
+                lua.pushnil(L)
+            }
+        }
+
+        return 1
+    }
+}
+
+_gen_vector_newindex :: proc($ArrayType: typeid, $VecLen: int, $ElemType: typeid, $AllowedVals: string, $Vec2Type: typeid, $Vec3Type: typeid, $Vec4Type: typeid) -> lua.CFunction {
+    return proc "c" (L: ^lua.State) -> c.int {
+        context = default_context()
+        udata: ArrayType 
+        to_value(L, 1, &udata)
+        // Note(Dragos): It should also accept indices
+        key := lua.tostring(L, 2)
+        assert(len(key) <= VecLen, "Cannot assign more indices than the vector takes")
+        result: Vec4Type
+
+        switch len(key) {
+            case 1: {
+                val: ElemType 
+                to_value(L, 3, &val)
+                
+                if idx := strings.index_byte(AllowedVals, key[0]); idx != -1 {
+                    arrIdx := idx % VecLen
+                    udata[arrIdx] = val
+                }
+            }
+
+            case 2: {
+                val: Vec2Type
+                for r, i in key {
+                    to_value(L, 3, &val)
+                    if idx := strings.index_rune(AllowedVals, r); idx != -1 {
+                        arrIdx := idx % VecLen
+                        udata[arrIdx] = val[i]
+                    }
+                }
+            }
+
+            case 3: {
+                val: Vec3Type
+                for r, i in key {   
+                    to_value(L, 3, &val)
+                    if idx := strings.index_rune(AllowedVals, r); idx != -1 {
+                        arrIdx := idx % VecLen
+                        udata[arrIdx] = val[i]
+                    }
+                }
+            }
+
+            case 4: {
+                val: Vec4Type
+                for r, i in key {                   
+                    to_value(L, 3, &val)
+                    if idx := strings.index_rune(AllowedVals, r); idx != -1 {
+                        arrIdx := idx % VecLen
+                        udata[arrIdx] = val[i]
+                    }
+                }
+            }
+        }
+
+
+        return 0
+    }
 }
