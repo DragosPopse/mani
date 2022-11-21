@@ -21,6 +21,9 @@
 *.lsp.lua
 
 !copy_to_shared.bat
+
+!build_test.bat
+!run_test.bat
 !test.bat
 
 !mani_config.json
