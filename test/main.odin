@@ -68,7 +68,6 @@ half_object_print :: proc(using v: HalfObject) {
 @(LuaExport = {
     Name = "vec2f64",
     Type = {Light, Full},
-    Style = {Vector, Color},
     SwizzleTypes = {Vec3, Vec4},
     Fields = xyrg,
 })

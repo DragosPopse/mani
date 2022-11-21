@@ -147,20 +147,91 @@ generate_struct_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExpor
     write_lua_struct_init(sb, exports, s)
 }
 
-generate_array_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, s: ArrayExport, filename: string) {
+generate_array_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, arr: ArrayExport, filename: string) {
     using strings 
     sb := &(&config.files[exports.symbols_package]).builder
+
+    write_lua_array_index(sb, exports, arr)
+    write_lua_array_newindex(sb, exports, arr)
+    write_lua_array_init(sb, exports, arr)
+}
+
+write_lua_array_init :: proc(sb: ^strings.Builder, exports: FileExports, arr: ArrayExport) {
+
+}
+
+write_lua_array_index :: proc(sb: ^strings.Builder, exports: FileExports, arr: ArrayExport) {
+    using strings, fmt
+    
+    exportAttrib := arr.attribs["LuaExport"].(Attributes)
+    luaName := exportAttrib["Name"].(String) or_else arr.name
+    udataType := exportAttrib["Type"].(Attributes)
+    allowLight := "Light" in udataType
+    allowFull := "Full" in udataType
+    if allowFull {
+        sbprintf(sb,
+            `
+_mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
+
+    context = mani.default_context()
+    udata: {0:s}
+    mani.to_value(L, 1, &udata)
+    // Note(Dragos): It should also accept indices
+    key := lua.tostring(L, 2)
+    
+    assert(len(key) <= 4, "Vectors can only be swizzled up to 4 elements")
+
+    result: {2:s}
+    for r, i in key {{
+        if idx := strings.index_rune(AllowedVals, r); idx != -1 {
+            arrIdx := idx % {1:d} 
+            result[i] = udata[arrIdx]
+        }}
+    }}
+
+    switch len(key) {{
+        case 1: {
+            mani.push_value(L, result.x)
+        }}
+
+        case 2: {{
+            mani.push_value(L, result.xy)
+        }}
+
+        case 3: {{
+            mani.push_value(L, result.xyz)
+        }}
+
+        case 4: {{
+            mani.push_value(L, result)
+        }}
+
+        case: {{
+            lua.pushnil(L)
+        }}
+    }}
+
+    return 1
+}}
+        `, arr.name)
+    }
+    
+}
+
+write_lua_array_newindex :: proc(sb: ^strings.Builder, exports: FileExports, arr: ArrayExport) {
+    using strings, fmt
+    
 }
 
 write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
-    using strings
+    using strings, fmt
 
     exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_STRUCT_ATTRIBUTES
     udataType := exportAttribs["Type"].(Attributes)  
     allowLight := "Light" in udataType
     allowFull := "Full" in udataType
     
-    luaName := exportAttribs["Name"].(String) if "Name" in exportAttribs else s.name
+    luaName := exportAttribs["Name"].(String) or_else s.name
 
 
     write_string(sb, "@(init)\n")
@@ -789,7 +860,7 @@ generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
             }
 
             case ArrayExport: {
-
+                generate_array_lua_wrapper(config, exports, x, exports.relpath)
             }
         }
     }
