@@ -35,6 +35,8 @@ HalfObject :: struct {
     hidden: int,
 }
 
+
+
 //@param v integer The integer used to make the object
 //@return HalfObject result The object that was made
 @(LuaExport)
@@ -67,10 +69,8 @@ half_object_print :: proc(using v: HalfObject) {
     Name = "vec2f64",
     Type = {Light, Full},
     Style = {Vector, Color},
-    Upcast = {
-        Vec3 = 3,
-        Vec4 = 4,
-    },
+    SwizzleTypes = {Vec3, Vec4},
+    Fields = xyrg,
 })
 Vec2 :: [2]int 
 
@@ -87,11 +87,10 @@ Vec3 :: [3]int
     Name = "vec4f64",
     Type = {Light, Full},
     Style = {Vector, Color},
-    SwizzleTypes = {Vec3, Vec2},
+    SwizzleTypes = {Vec2, Vec3},
     Fields = xyzwrgba,
 })
 Vec4 :: [4]int 
-
 
 
 generate_vecs :: proc($FullName: cstring, tostring: lua.CFunction, $VecType: typeid, $VecLen: int, $ElemType: typeid, $AllowedVals: string, 

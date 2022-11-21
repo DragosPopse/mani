@@ -225,8 +225,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                 }
 
                 case ^ast.Distinct_Type: {
-                    fmt.printf("Distinct types not yet supported\n")
-                    /*#partial switch x in v.derived {
+                    #partial switch x in v.derived {
                         case ^ast.Array_Type: {
                             exportArr, err := parse_array(root, decl, x)
                             if err == .Export {
@@ -234,7 +233,7 @@ parse_symbols :: proc(fileName: string) -> (symbol_exports: FileExports) {
                                 symbol_exports.symbols[exportArr.name] = exportArr
                             }
                         }
-                    }*/
+                    }
                 }
 
                 case ^ast.Array_Type: {
@@ -397,7 +396,7 @@ parse_array :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, arr_decl: ^ast
     lenLit := arr_decl.len.derived.(^ast.Basic_Lit)
     lenStr := root.src[lenLit.pos.offset : lenLit.end.offset]
     result.len, _ = strconv.parse_int(lenStr)
-    fmt.printf("Type: %s; Len: %d", result.name, result.len)
+    
     err = .Export
     return
 }
