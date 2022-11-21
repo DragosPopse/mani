@@ -78,12 +78,8 @@ Vec2 :: [2]int
     Name = "vec3f64",
     Type = {Light, Full},
     Style = {Vector, Color},
-    Upcast = {
-        Vec4 = 4,
-    },
-    Downcast = {
-        Vec2 = 2,
-    },
+    SwizzleTypes = {Vec2, Vec4},
+    Fields = xyzrgb,
 })
 Vec3 :: [3]int
 
@@ -91,10 +87,8 @@ Vec3 :: [3]int
     Name = "vec4f64",
     Type = {Light, Full},
     Style = {Vector, Color},
-    Downcast = {
-        Vec3 = 3,
-        Vec2 = 2,  
-    },
+    SwizzleTypes = {Vec3, Vec2},
+    Fields = xyzwrgba,
 })
 Vec4 :: [4]int 
 
@@ -153,19 +147,20 @@ main :: proc() {
     generate_vecs("Vec4", _mani_vec4_tostring, Vec4, 4, int, "xyzwrgba", Vec2, Vec3, Vec4)
     generate_vecs("Vec3", _mani_vec3_tostring, Vec3, 3, int, "xyzrgb", Vec2, Vec3, Vec4)
     generate_vecs("Vec2", _mani_vec2_tostring, Vec2, 2, int, "xyrg", Vec2, Vec3, Vec4)
+    generate_vecs("Vec4_light", _mani_vec4_tostring, ^Vec4, 4, int, "xyzwrgba", Vec2, Vec3, Vec4)
+    generate_vecs("Vec3_light", _mani_vec3_tostring, ^Vec3, 3, int, "xyzrgb", Vec2, Vec3, Vec4)
+    generate_vecs("Vec2_light", _mani_vec2_tostring, ^Vec2, 2, int, "xyrg", Vec2, Vec3, Vec4)
+
     mani.export_all(L, mani.global_state)
     obj := make_object(20)
     
     v: Vec3 = {1, 2, 3}
-    v2 := [3]int{} 
-    v2 = v
-
-    //mani.set_global(L, "global_obj", &obj)
-    //mani.push_value(L, v)
+    mani.set_global(L, "g_vec", &v)
 
     if luaL.dofile(L, "test/test.lua") != lua.OK {
         fmt.printf("LuaError: %s\n", lua.tostring(L, -1))
     }
 
+    fmt.printf("Odin: %s\n", vec3_tostring(v))
     
 }
