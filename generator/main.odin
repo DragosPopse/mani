@@ -36,6 +36,7 @@ main :: proc() {
     for len(dirQueue) > 0 {
         idx := len(dirQueue) - 1
         if dirfd, err := os.open(dirQueue[idx]); err == os.ERROR_NONE {
+            defer os.close(dirfd)
             pop(&dirQueue)
             if files, err := os.read_dir(dirfd, 0); err == os.ERROR_NONE {
                 for file in files {    
@@ -69,6 +70,7 @@ main :: proc() {
         {
             sb := &file.lua_builder
             str := strings.to_string(sb^)
+            fmt.printf("Writing to %s\n", file.lua_filename)
             fd, err := os.open(file.lua_filename, os.O_CREATE | os.O_WRONLY | os.O_TRUNC)
             if err != os.ERROR_NONE {
                 fmt.printf("Failed to open %s\n", file.lua_filename)
@@ -77,24 +79,5 @@ main :: proc() {
             os.write_string(fd, str)
         }
     }
-    //testing()
 }
 
-/*
-import "shared:lua"
-import "shared:luaL"
-import "../shared/mani"
-testing :: proc() {
-    fmt.printf("bruh\n")
-    L: ^lua.State
-    S :: struct {
-        v: int,
-    }
-    s := S{}
-    s.v = 3
-    val: int
-    ptr: ^int
-    mani.to_value(L, -1, &val)
-    mani.to_value(L, -1, &ptr)
-
-}*/

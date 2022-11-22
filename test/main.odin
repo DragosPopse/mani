@@ -4,6 +4,7 @@ import "core:fmt"
 import "shared:lua"
 import "shared:luaL"
 import "shared:mani"
+import "core:c"
 
 
 //@field val integer The value of the object
@@ -136,6 +137,7 @@ vec2_tostring :: proc(v: Vec2) -> string {
     return fmt.tprintf("{{%d, %d}}", v.x, v.y)
 }
 
+
 main :: proc() {
     using fmt
     
@@ -148,7 +150,7 @@ main :: proc() {
     generate_vecs("Vec4_light", _mani_vec4_tostring, ^Vec4, 4, int, "xyzwrgba", Vec2, Vec3, Vec4)
     generate_vecs("Vec3_light", _mani_vec3_tostring, ^Vec3, 3, int, "xyzrgb", Vec2, Vec3, Vec4)
     generate_vecs("Vec2_light", _mani_vec2_tostring, ^Vec2, 2, int, "xyrg", Vec2, Vec3, Vec4)
-
+  
     mani.export_all(L, mani.global_state)
     obj := make_object(20)
     

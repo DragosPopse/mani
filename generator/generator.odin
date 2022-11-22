@@ -114,20 +114,21 @@ config_package :: proc(config: ^GeneratorConfig, pkg: string, filename: string) 
 config_from_json :: proc(config: ^GeneratorConfig, file: string) {
     data, ok := os.read_entire_file(file)
     if !ok {
+        fmt.printf("Failed to read config file\n")
         return
     }
     defer delete(data)
-
-    obj, err := json.parse(data)
+    str := strings.clone_from_bytes(data, context.temp_allocator)
+    obj, err := json.parse_string(str)
     if err != .None {
         return
     }
     defer json.destroy_value(obj) 
 
     root := obj.(json.Object)
-    config.input_directory = root["dir"].(json.String)
-    config.meta_directory = root["meta_dir"].(json.String)
-    
+    config.input_directory = strings.clone(root["dir"].(json.String))
+    config.meta_directory = strings.clone(root["meta_dir"].(json.String))
+    fmt.printf("MetaDir: %s\n", config.meta_directory)
 }
 
 create_config_from_args :: proc() -> (result: GeneratorConfig) {
@@ -232,12 +233,203 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 }}
         `, arr.name, arrayTypes[2].name, arr.len, allowedFields)
     }
+
+    if allowLight {
+        sbprintf(sb,
+            `
+_mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
+
+    context = mani.default_context()
+    udata: ^{0:s}
+    mani.to_value(L, 1, &udata)
+    // Note(Dragos): It should also accept indices
+    key := lua.tostring(L, 2)
+    
+    assert(len(key) <= 4, "Vectors can only be swizzled up to 4 elements")
+
+    result: {1:s} // Highest possible array type
+    for r, i in key {{
+        if idx := strings.index_rune("{3:s}", r); idx != -1 {{
+            arrIdx := idx %% {2:i}
+            result[i] = udata[arrIdx]
+        }}
+    }}
+
+    switch len(key) {{
+        case 1: {{
+            mani.push_value(L, result.x)
+        }}
+
+        case 2: {{
+            mani.push_value(L, result.xy)
+        }}
+
+        case 3: {{
+            mani.push_value(L, result.xyz)
+        }}
+
+        case 4: {{
+            mani.push_value(L, result)
+        }}
+
+        case: {{
+            lua.pushnil(L)
+        }}
+    }}
+
+    return 1
+}}
+        `, arr.name, arrayTypes[2].name, arr.len, allowedFields)
+    }
     
 }
 
 write_lua_array_newindex :: proc(sb: ^strings.Builder, exports: FileExports, arr: ArrayExport) {
     using strings, fmt
     
+    exportAttrib := arr.attribs["LuaExport"].(Attributes)
+    luaName := exportAttrib["Name"].(String) or_else arr.name
+    udataType := exportAttrib["Type"].(Attributes)
+    allowLight := "Light" in udataType
+    allowFull := "Full" in udataType
+    swizzleTypes := exportAttrib["SwizzleTypes"].(Attributes) 
+    allowedFields := cast(string)exportAttrib["Fields"].(Identifier)
+    
+    //0: Arr2
+    //1: Arr3 
+    //2: Arr4
+    arrayTypes: [3]ArrayExport
+    for typename in swizzleTypes {
+        type := exports.symbols[typename].(ArrayExport)
+        arrayTypes[type.len - 2] = type
+    }
+    arrayTypes[arr.len - 2] = arr
+
+    if allowFull {
+        sbprintf(sb,
+            `
+_mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
+
+    context = mani.default_context()
+    udata: {0:s} 
+    mani.to_value(L, 1, &udata)
+    // Note(Dragos): It should also accept indices
+    key := lua.tostring(L, 2)
+    assert(len(key) <= {1:d}, "Cannot assign more indices than the vector takes")
+
+    switch len(key) {{
+        case 1: {{
+            val: {2:s} 
+            mani.to_value(L, 3, &val.x)
+            
+            if idx := strings.index_byte("{5:s}", key[0]); idx != -1 {{
+                arrIdx := idx %% {1:d}
+                udata[arrIdx] = val.x
+            }}
+        }
+
+        case 2: {{
+            val: {2:s}
+            mani.to_value(L, 3, &val)
+            for r, i in key {{
+                if idx := strings.index_rune("{5:s}", r); idx != -1 {{
+                    arrIdx := idx %% {1:d}
+                    udata[arrIdx] = val[i]
+                }}
+            }}
+        }}
+
+        case 3: {{
+            val: {3:s}
+            mani.to_value(L, 3, &val)
+            for r, i in key {{  
+                if idx := strings.index_rune("{5:s}", r); idx != -1 {{
+                    arrIdx := idx %% {1:d}
+                    udata[arrIdx] = val[i]
+                }}
+            }}
+        }}
+
+        case 4: {{
+            val: {4:s}
+            mani.to_value(L, 3, &val)
+            for r, i in key {{                   
+                if idx := strings.index_rune("{5:s}", r); idx != -1 {{
+                    arrIdx := idx %% {1:d}
+                    udata[arrIdx] = val[i]
+                }}
+            }}
+        }}
+    }}
+
+
+    return 0
+}}
+        `, arr.name, arr.len, arrayTypes[0].name, arrayTypes[1].name, arrayTypes[2].name, allowedFields)
+    }
+
+    if allowLight {
+        sbprintf(sb,
+            `
+_mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
+
+    context = mani.default_context()
+    udata: ^{0:s} 
+    mani.to_value(L, 1, &udata)
+    // Note(Dragos): It should also accept indices
+    key := lua.tostring(L, 2)
+    assert(len(key) <= {1:d}, "Cannot assign more indices than the vector takes")
+
+    switch len(key) {{
+        case 1: {{
+            val: {2:s} 
+            mani.to_value(L, 3, &val.x)      
+            if idx := strings.index_byte("{5:s}", key[0]); idx != -1 {{
+                arrIdx := idx %% {1:d}
+                udata[arrIdx] = val.x
+            }}
+        }
+
+        case 2: {{
+            val: {2:s}
+            mani.to_value(L, 3, &val)
+            for r, i in key {{
+                if idx := strings.index_rune("{5:s}", r); idx != -1 {{
+                    arrIdx := idx %% {1:d}
+                    udata[arrIdx] = val[i]
+                }}
+            }}
+        }}
+
+        case 3: {{
+            val: {3:s}
+            mani.to_value(L, 3, &val)    
+            for r, i in key {{   
+                if idx := strings.index_rune("{5:s}", r); idx != -1 {{
+                    arrIdx := idx %% {1:d}
+                    udata[arrIdx] = val[i]
+                }}
+            }}
+        }}
+
+        case 4: {{
+            val: {4:s}
+            mani.to_value(L, 3, &val)
+            for r, i in key {{                   
+                if idx := strings.index_rune("{5:s}", r); idx != -1 {{
+                    arrIdx := idx %% {1:d}
+                    udata[arrIdx] = val[i]
+                }}
+            }}
+        }}
+    }}
+
+
+    return 0
+}}
+        `, arr.name, arr.len, arrayTypes[0].name, arrayTypes[1].name, arrayTypes[2].name, allowedFields)
+    }
+
 }
 
 write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
