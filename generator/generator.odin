@@ -96,6 +96,10 @@ config_package :: proc(config: ^GeneratorConfig, pkg: string, filename: string) 
             name = "mani",
             text = `import mani "shared:mani"`,
         }
+        file.imports["strings"] = FileImport {
+            name = "strings",
+            text = `import strings "core:strings"`,
+        }
         
         for _, imp in file.imports {
             write_string(sb, imp.text)
@@ -168,6 +172,19 @@ write_lua_array_index :: proc(sb: ^strings.Builder, exports: FileExports, arr: A
     udataType := exportAttrib["Type"].(Attributes)
     allowLight := "Light" in udataType
     allowFull := "Full" in udataType
+    swizzleTypes := exportAttrib["SwizzleTypes"].(Attributes) 
+    allowedFields := cast(string)exportAttrib["Fields"].(Identifier)
+    
+    //0: Arr2
+    //1: Arr3 
+    //2: Arr4
+    arrayTypes: [3]ArrayExport
+    for typename in swizzleTypes {
+        type := exports.symbols[typename].(ArrayExport)
+        arrayTypes[type.len - 2] = type
+    }
+    arrayTypes[arr.len - 2] = arr
+
     if allowFull {
         sbprintf(sb,
             `
@@ -181,16 +198,16 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
     
     assert(len(key) <= 4, "Vectors can only be swizzled up to 4 elements")
 
-    result: {2:s}
+    result: {1:s} // Highest possible array type
     for r, i in key {{
-        if idx := strings.index_rune(AllowedVals, r); idx != -1 {
-            arrIdx := idx % {1:d} 
+        if idx := strings.index_rune("{3:s}", r); idx != -1 {{
+            arrIdx := idx %% {2:i}
             result[i] = udata[arrIdx]
         }}
     }}
 
     switch len(key) {{
-        case 1: {
+        case 1: {{
             mani.push_value(L, result.x)
         }}
 
@@ -213,7 +230,7 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 
     return 1
 }}
-        `, arr.name)
+        `, arr.name, arrayTypes[2].name, arr.len, allowedFields)
     }
     
 }
