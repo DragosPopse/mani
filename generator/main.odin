@@ -65,17 +65,18 @@ main :: proc() {
                 fmt.printf("Failed to open %s\n", file.lua_filename)
             } 
             defer os.close(fd)
+            fmt.printf("Writing to %s\n", file.filename)
             os.write_string(fd, str)
         }
         {
             sb := &file.lua_builder
             str := strings.to_string(sb^)
-            fmt.printf("Writing to %s\n", file.lua_filename)
             fd, err := os.open(file.lua_filename, os.O_CREATE | os.O_WRONLY | os.O_TRUNC)
             if err != os.ERROR_NONE {
                 fmt.printf("Failed to open %s\n", file.lua_filename)
             }
             defer os.close(fd)
+            fmt.printf("Writing to %s\n", file.lua_filename)
             os.write_string(fd, str)
         }
     }
