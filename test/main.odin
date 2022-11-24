@@ -95,12 +95,14 @@ Vec3 :: [3]int
     Style = {Vector, Color},
     SwizzleTypes = {Vec2, Vec3},
     Fields = xyzwrgba,
+    Methods = {
+        vec4_tostring = "stringify",
+    },
     Metamethods = {
         __tostring = vec4_tostring,
     },
 })
-Vec4 :: [4]int 
-
+Vec4 :: [4]int  
 
 generate_vecs :: proc($FullName: cstring, tostring: lua.CFunction, $VecType: typeid, $VecLen: int, $ElemType: typeid, $AllowedVals: string, 
     $Vec2Type: typeid,

@@ -159,6 +159,11 @@ generate_array_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExport
     using strings 
     sb := &(&config.files[exports.symbols_package]).builder
 
+    exportAttribs := arr.attribs["LuaExport"].(Attributes)
+    if methods, found := exportAttribs["Methods"].(Attributes); found {
+        generate_methods_mapping(config, exports, methods, arr.name)
+    }
+
     write_lua_array_index(sb, exports, arr)
     write_lua_array_newindex(sb, exports, arr)
     write_lua_array_init(sb, exports, arr)
@@ -343,7 +348,7 @@ write_lua_array_index :: proc(sb: ^strings.Builder, exports: FileExports, arr: A
     allowFull := "Full" in udataType
     swizzleTypes := exportAttrib["SwizzleTypes"].(Attributes) 
     allowedFields := cast(string)exportAttrib["Fields"].(Identifier)
-    
+    hasMethods := "Methods" in exportAttrib
     //0: Arr2
     //1: Arr3 
     //2: Arr4
@@ -355,8 +360,58 @@ write_lua_array_index :: proc(sb: ^strings.Builder, exports: FileExports, arr: A
     arrayTypes[arr.len - 2] = arr
 
     if allowFull {
-        sbprintf(sb,
-            `
+        if hasMethods {
+            sbprintf(sb,
+                `
+_mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
+
+    context = mani.default_context()
+    udata: {0:s}
+    mani.to_value(L, 1, &udata)
+    // Note(Dragos): It should also accept indices
+    key := lua.tostring(L, 2)
+    if method, found := _mani_methods_{0:s}[key]; found {{
+        mani.push_value(L, method)
+        return 1
+    }}
+    assert(len(key) <= 4, "Vectors can only be swizzled up to 4 elements")
+
+    result: {1:s} // Highest possible array type
+    for r, i in key {{
+        if idx := strings.index_rune("{3:s}", r); idx != -1 {{
+            arrIdx := idx %% {2:i}
+            result[i] = udata[arrIdx]
+        }}
+    }}
+
+    switch len(key) {{
+        case 1: {{
+            mani.push_value(L, result.x)
+        }}
+
+        case 2: {{
+            mani.push_value(L, result.xy)
+        }}
+
+        case 3: {{
+            mani.push_value(L, result.xyz)
+        }}
+
+        case 4: {{
+            mani.push_value(L, result)
+        }}
+
+        case: {{
+            lua.pushnil(L)
+        }}
+    }}
+
+    return 1
+}}
+            `, arr.name, arrayTypes[2].name, arr.len, allowedFields)
+        } else {
+            sbprintf(sb,
+                `
 _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 
     context = mani.default_context()
@@ -399,12 +454,15 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 
     return 1
 }}
-        `, arr.name, arrayTypes[2].name, arr.len, allowedFields)
+            `, arr.name, arrayTypes[2].name, arr.len, allowedFields)
+        }
+        
     }
 
     if allowLight {
-        sbprintf(sb,
-            `
+        if hasMethods {
+            sbprintf(sb,
+                `
 _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
 
     context = mani.default_context()
@@ -412,7 +470,10 @@ _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
     mani.to_value(L, 1, &udata)
     // Note(Dragos): It should also accept indices
     key := lua.tostring(L, 2)
-    
+    if method, found := _mani_methods_{0:s}[key]; found {{
+        mani.push_value(L, method)
+        return 1
+    }}
     assert(len(key) <= 4, "Vectors can only be swizzled up to 4 elements")
 
     result: {1:s} // Highest possible array type
@@ -447,7 +508,54 @@ _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
 
     return 1
 }}
-        `, arr.name, arrayTypes[2].name, arr.len, allowedFields)
+            `, arr.name, arrayTypes[2].name, arr.len, allowedFields)
+        } else {
+            sbprintf(sb,
+                `
+    _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
+    
+        context = mani.default_context()
+        udata: ^{0:s}
+        mani.to_value(L, 1, &udata)
+        // Note(Dragos): It should also accept indices
+        key := lua.tostring(L, 2)
+        
+        assert(len(key) <= 4, "Vectors can only be swizzled up to 4 elements")
+    
+        result: {1:s} // Highest possible array type
+        for r, i in key {{
+            if idx := strings.index_rune("{3:s}", r); idx != -1 {{
+                arrIdx := idx %% {2:i}
+                result[i] = udata[arrIdx]
+            }}
+        }}
+    
+        switch len(key) {{
+            case 1: {{
+                mani.push_value(L, result.x)
+            }}
+    
+            case 2: {{
+                mani.push_value(L, result.xy)
+            }}
+    
+            case 3: {{
+                mani.push_value(L, result.xyz)
+            }}
+    
+            case 4: {{
+                mani.push_value(L, result)
+            }}
+    
+            case: {{
+                lua.pushnil(L)
+            }}
+        }}
+    
+        return 1
+    }}
+            `, arr.name, arrayTypes[2].name, arr.len, allowedFields)
+        }
     }
     
 }
