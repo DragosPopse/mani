@@ -4,7 +4,7 @@ import lua "shared:lua"
 import luaL "shared:luaL"
 import strings "core:strings"
 import "core:c"
-
+import "core:fmt"
 import "core:runtime"
 
 LuaName :: distinct string
@@ -84,7 +84,7 @@ add_struct :: proc(s: StructExport) {
     }
 }
 
-import "core:fmt"
+
 export_all :: proc(L: ^lua.State, using state: State) {
     if default_context == nil {
         default_context = runtime.default_context 

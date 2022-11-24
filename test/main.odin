@@ -104,28 +104,7 @@ Vec3 :: [3]int
 })
 Vec4 :: [4]int  
 
-generate_vecs :: proc($FullName: cstring, tostring: lua.CFunction, $VecType: typeid, $VecLen: int, $ElemType: typeid, $AllowedVals: string, 
-    $Vec2Type: typeid,
-    $Vec3Type: typeid,
-    $Vec4Type: typeid) {
-    expStruct: mani.StructExport
-    expStruct.pkg = "test"
-    expStruct.odin_name = cast(mani.OdinName)FullName
-    expStruct.lua_name = cast(mani.LuaName)FullName
-    expStruct.type = VecType
-    
-    
-    copyMeta: mani.MetatableData
-    copyMeta.name = FullName
-    copyMeta.odin_type = VecType
-    copyMeta.index = mani._gen_vector_index(VecType, VecLen, ElemType, AllowedVals, Vec2Type, Vec3Type, Vec4Type)
-    copyMeta.newindex = mani._gen_vector_newindex(VecType, VecLen, ElemType, AllowedVals, Vec2Type, Vec3Type, Vec4Type)
-    copyMeta.methods = make(map[cstring]lua.CFunction)
-    copyMeta.methods["__tostring"] = tostring
-    expStruct.full_meta = copyMeta
 
-    mani.add_struct(expStruct)
-}
 
 // This seems to not generate correct intellisense
 @(LuaExport)
@@ -152,15 +131,9 @@ vec2_tostring :: proc(v: Vec2) -> string {
 main :: proc() {
     using fmt
     
-    //types :: [?]typeid{type_of(Vec3), type_of(Vec2)}
+
     L := luaL.newstate()
     luaL.openlibs(L)
-    //generate_vecs("Vec4", _mani_vec4_tostring, Vec4, 4, int, "xyzwrgba", Vec2, Vec3, Vec4)
-    //generate_vecs("Vec3", _mani_vec3_tostring, Vec3, 3, int, "xyzrgb", Vec2, Vec3, Vec4)
-    //generate_vecs("Vec2", _mani_vec2_tostring, Vec2, 2, int, "xyrg", Vec2, Vec3, Vec4)
-    //generate_vecs("Vec4_light", _mani_vec4_tostring, ^Vec4, 4, int, "xyzwrgba", Vec2, Vec3, Vec4)
-    //generate_vecs("Vec3_light", _mani_vec3_tostring, ^Vec3, 3, int, "xyzrgb", Vec2, Vec3, Vec4)
-    //generate_vecs("Vec2_light", _mani_vec2_tostring, ^Vec2, 2, int, "xyrg", Vec2, Vec3, Vec4)
   
     mani.export_all(L, mani.global_state)
     obj := make_object(20)
