@@ -146,6 +146,10 @@ create_config_from_args :: proc() -> (result: GeneratorConfig) {
 generate_struct_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, s: StructExport, filename: string) {
     using strings 
     sb := &(&config.files[exports.symbols_package]).builder
+    exportAttribs := s.attribs["LuaExport"].(Attributes)
+    if methods, found := exportAttribs["Methods"].(Attributes); found {
+        generate_methods_mapping(config, exports, methods, s.name)
+    }
     write_lua_index(sb, exports, s)
     write_lua_newindex(sb, exports, s)
     write_lua_struct_init(sb, exports, s)
@@ -158,6 +162,23 @@ generate_array_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExport
     write_lua_array_index(sb, exports, arr)
     write_lua_array_newindex(sb, exports, arr)
     write_lua_array_init(sb, exports, arr)
+}
+
+generate_methods_mapping :: proc(config: ^GeneratorConfig, exports: FileExports, methods: Attributes, name: string) {
+    using strings, fmt
+    sb := &(&config.files[exports.symbols_package]).builder
+
+    write_string(sb, `@(private = "file")`)
+    write_rune(sb, '\n')
+    write_string(sb, "_mani_methods_")
+    write_string(sb, name)
+    write_string(sb, " := map[string]lua.CFunction {\n")
+
+    for odinName, v in methods {
+        luaName := v.(String)
+        sbprintf(sb, "    \"%s\" = _mani_%s,\n", luaName, odinName)
+    }
+    write_string(sb, "}\n")
 }
 
 write_lua_array_init :: proc(sb: ^strings.Builder, exports: FileExports, arr: ArrayExport) {
@@ -742,15 +763,30 @@ write_lua_index :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExp
     udataType := exportAttribs["Type"].(Attributes)  
     allowLight := "Light" in udataType
     allowFull := "Full" in udataType
+    hasMethods := "Methods" in exportAttribs
 
 
     if allowFull {
-        //write_string(sb, "_mani_index_")
-        //write_string(sb, s.name)
-        //write_string(sb, " :: proc(L: ^lua.State) {\n    ")
-        //write_string(sb, "udata := ")
-        fmt.sbprintf(sb, 
-`
+        if hasMethods {
+            fmt.sbprintf(sb, 
+                `
+_mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
+    context = mani.default_context()
+    udata := transmute(^{1:s})luaL.checkudata(L, 1, "{0:s}")
+    key := lua.tostring(L, 2)
+    if method, found := _mani_methods_{0:s}[key]; found {{
+        mani.push_value(L, method)
+        return 1
+    }}
+    switch key {{
+        case: {{
+            lua.pushnil(L)
+            return 1
+        }}
+                `, s.name, s.name)
+        } else {
+            fmt.sbprintf(sb, 
+                `
 _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
     context = mani.default_context()
     udata := transmute(^{1:s})luaL.checkudata(L, 1, "{0:s}")
@@ -760,7 +796,8 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
             lua.pushnil(L)
             return 1
         }}
-`       , s.name, s.name)
+                `, s.name, s.name)
+        }
 
 
         for k, field in s.fields {
@@ -792,26 +829,6 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 `,    name, field.odin_name)
             }
         }
-
-        if methodsAttrib, found := exportAttribs["Methods"]; found {
-            methods := methodsAttrib.(Attributes)
-            for odinProc, luaNameAttrib in methods {
-                luaName: string 
-                if name, found := luaNameAttrib.(String); found {
-                    luaName = name 
-                } else {
-                    luaName = odinProc
-                }
-                fmt.sbprintf(sb, 
-`        
-        case "{0:s}": {{
-            mani.push_value(L, _mani_{1:s})
-            return 1
-        }}
-`,    luaName, odinProc)
-            }
-        }
-
         fmt.sbprintf(sb, 
 `
     }}
@@ -822,18 +839,38 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
     }
 
     if allowLight {
-        fmt.sbprintf(sb, 
-`
+        if hasMethods {
+            fmt.sbprintf(sb, 
+                `
 _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
     context = mani.default_context()
-    udata := transmute(^^{1:s})luaL.checkudata(L, 1, "{0:s}_ref")
+    udata := transmute(^{1:s})luaL.checkudata(L, 1, "{0:s}")
+    key := lua.tostring(L, 2)
+    if method, found := _mani_methods_{0:s}[key]; found {{
+        mani.push_value(L, method)
+        return 1
+    }}
+    switch key {{
+        case: {{
+            lua.pushnil(L)
+            return 1
+        }}
+                `, s.name, s.name)
+        } else {
+            fmt.sbprintf(sb, 
+                `
+_mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
+    context = mani.default_context()
+    udata := transmute(^{1:s})luaL.checkudata(L, 1, "{0:s}")
     key := lua.tostring(L, 2)
     switch key {{
         case: {{
             lua.pushnil(L)
             return 1
         }}
-`       , s.name, s.name)
+                `, s.name, s.name)
+        }
+
         for k, field in s.fields {
             shouldExport := false
             name: string
