@@ -415,7 +415,7 @@ parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: 
     result.fields = make(map[string]StructField) 
     
     for field in struct_decl.fields.list {
-        fName := field.names[0].derived.(^ast.Ident).name 
+        
         fType: string
         #partial switch x in field.type.derived {
             case ^ast.Ident: {
@@ -428,11 +428,14 @@ parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: 
                 fType = root.src[x.pos.offset : x.end.offset]
             }
         }
-
-        result.fields[fName] = StructField {
-            odin_name = fName,
-            type = fType,
+        for name in field.names {
+            fName := name.derived.(^ast.Ident).name 
+            result.fields[fName] = StructField {
+                odin_name = fName,
+                type = fType,
+            }
         }
+        
     }
 
     // Check if LuaFields match
@@ -502,16 +505,12 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
                 }
             }
 
-             
-            paramName := param.names[0].derived.(^ast.Ident).name
-        
-            
-            append(&result.params, type_of(result.params[0]){
-                name = paramName, 
-                type = paramType,
-            })
-            
-            
+            for name in param.names {
+                append(&result.params, type_of(result.params[0]){
+                    name = name.derived.(^ast.Ident).name, 
+                    type = paramType,
+                })
+            }         
         }
     }
     
