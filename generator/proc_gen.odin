@@ -1,5 +1,8 @@
 package mani_generator
 
+import "core:fmt"
+import "core:strings"
+
 write_proc_meta :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport) {
     using strings
     sb := &(&config.files[exports.symbols_package]).lua_builder

@@ -1,5 +1,7 @@
 package mani_generator
 
+import "core:fmt"
+import "core:strings"
 
 write_lua_struct_init :: proc(sb: ^strings.Builder, exports: FileExports, s: StructExport) {
     using strings, fmt
