@@ -87,10 +87,12 @@ ProcedureExport :: struct {
     using base: NodeExport,
     name: string,
     calling_convention: string,
-    result_types: []string,
-    result_names: []string,
-    param_types: []string,
-    param_names: []string,
+    params: [dynamic]struct {
+        name, type: string,
+    },
+    results: [dynamic]struct {
+        name, type: string,
+    },
 }
 
 SymbolExport :: union {
@@ -481,16 +483,13 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
     // Note(Dragos): these should be checked for 0
     
     
-
+    result.params = make(type_of(result.params))
+    result.results = make(type_of(result.results))
     // Get parameters
     if procType.params != nil {
-        nParams := len(procType.params.list)
-        result.param_names = make([]string, nParams)
-        result.param_types = make([]string, nParams)
+        
         for param, i in procType.params.list {
             paramType: string
-            paramName := param.names[0].derived.(^ast.Ident).name
-        
             #partial switch x in param.type.derived {
                 case ^ast.Ident: {
                     paramType = x.name
@@ -502,19 +501,22 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
                     paramType = root.src[x.pos.offset : x.end.offset]
                 }
             }
+
+             
+            paramName := param.names[0].derived.(^ast.Ident).name
+        
             
-            result.param_names[i] = paramName
-            result.param_types[i] = paramType
+            append(&result.params, type_of(result.params[0]){
+                name = paramName, 
+                type = paramType,
+            })
+            
             
         }
     }
     
     // Get results
     if procType.results != nil {
-        nResults := len(procType.results.list)
-        result.result_names = make([]string, nResults)
-        result.result_types = make([]string, nResults)
-    
         for rval, i in procType.results.list {
             resName: string
             resType: string
@@ -540,9 +542,12 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
                 resName = strings.to_string(sb)
             }
             
-            
-            result.result_names[i] = resName
-            result.result_types[i] = resType
+    
+
+            append(&result.results, type_of(result.results[0]){
+                name = resName, 
+                type = resType,
+            })
         }
     }
 

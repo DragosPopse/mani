@@ -1182,9 +1182,9 @@ write_struct_meta :: proc(config: ^GeneratorConfig, exports: FileExports, s: Str
 
             // We skip the first parameter, assuming it's the struct itself
             // Is this legit? Needs testing
-            params := procExport.param_names[1:] 
-            for name, i in params {
-                write_string(sb, name)
+            params := procExport.params[1:] 
+            for param, i in params {
+                write_string(sb, param.name)
                 if i != len(params) - 1 do write_string(sb, ", ")
             }
         
@@ -1204,9 +1204,9 @@ write_proc_meta :: proc(config: ^GeneratorConfig, exports: FileExports, fn: Proc
     luaName := exportAttribs["Name"].(String) if "Name" in exportAttribs else fn.name
     fmt.sbprintf(sb, "function %s(", luaName)
     
-    for name, i in fn.param_names {
-        write_string(sb, name)
-        if i != len(fn.param_names) - 1 do write_string(sb, ", ")
+    for param, i in fn.params {
+        write_string(sb, param.name)
+        if i != len(fn.params) - 1 do write_string(sb, ", ")
 
     }
 
@@ -1228,34 +1228,34 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
         write_string(sb, "context = mani.default_context()\n\n    ")
     }
     // Declare parameters
-    for paramType, i in fn.param_types {
-        write_string(sb, fn.param_names[i])
+    for param in fn.params {
+        write_string(sb, param.name)
         write_string(sb, ": ")
-        write_string(sb, paramType)
+        write_string(sb, param.type)
         write_string(sb, "\n    ")
     }
 
     write_string(sb, "\n    ")
 
     //Get parameters from lua
-    if fn.param_names != nil {
-        for paramName, i in fn.param_names {
+    if fn.params != nil && len(fn.params) != 0 {
+        for param, i in fn.params {
             write_string(sb, "mani.to_value(L, ") // Note(Dragos): This needs to be replaced
             write_int(sb, i + 1)
             write_string(sb, ", &")
-            write_string(sb, paramName)
+            write_string(sb, param.name)
             write_string(sb, ")\n    ")
         }
     }
     
 
     // Declare results
-    if fn.result_names != nil {
-        for resultName, i in fn.result_names {
+    if fn.results != nil && len(fn.results) != 0 {
+        for result, i in fn.results {
      
-            write_string(sb, resultName)
+            write_string(sb, result.name)
             
-            if i < len(fn.result_names) - 1 {
+            if i < len(fn.results) - 1 {
                 write_string(sb, ", ")
             }
         }
@@ -1264,23 +1264,23 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     write_string(sb, fn.name)
     write_string(sb, "(")
     // Pass parameters to odin function
-    for paramName, i in fn.param_names {
-        write_string(sb, paramName)
-        if i < len(fn.param_names) - 1 {
+    for param, i in fn.params {
+        write_string(sb, param.name)
+        if i < len(fn.params) - 1 {
             write_string(sb, ", ")
         }
     }
     write_string(sb, ")\n\n    ")
 
-    for resultName, i in fn.result_names {
+    for result, i in fn.results {
         write_string(sb, "mani.push_value(L, ")
-        write_string(sb, resultName)
+        write_string(sb, result.name)
         write_string(sb, ")\n    ")
     }
     write_string(sb, "\n    ")
 
     write_string(sb, "return ")
-    write_int(sb, len(fn.result_types) if fn.result_types != nil else 0)
+    write_int(sb, len(fn.results) if fn.results != nil else 0)
     write_string(sb, "\n")
     write_string(sb, "}\n")
 
