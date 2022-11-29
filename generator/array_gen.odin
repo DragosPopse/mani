@@ -2,15 +2,26 @@ package mani_generator
 
 import "core:fmt"
 import "core:strings"
+import codew "code_writer"
 
 write_lua_array_index :: proc(sb: ^strings.Builder, exports: FileExports, arr: ArrayExport) {
     using strings, fmt
-    
+    writer := codew.writer_make(sb)
     exportAttrib := arr.attribs["LuaExport"].(Attributes)
     luaName := exportAttrib["Name"].(String) or_else arr.name
-    udataType := exportAttrib["Type"].(Attributes)
-    allowLight := "Light" in udataType
-    allowFull := "Full" in udataType
+
+    udataTypeAttrib := exportAttrib["Type"].(Attributes)  
+    allowLight := "Light" in udataTypeAttrib
+    allowFull := "Full" in udataTypeAttrib
+    UdataType :: enum {
+        Light = 0,
+        Full,
+    }
+    udataType := [UdataType]bool {
+        .Light = allowLight, 
+        .Full = allowFull,
+    }
+
     swizzleTypes := exportAttrib["SwizzleTypes"].(Attributes) 
     allowedFields := cast(string)exportAttrib["Fields"].(Identifier)
     hasMethods := "Methods" in exportAttrib
@@ -25,6 +36,7 @@ write_lua_array_index :: proc(sb: ^strings.Builder, exports: FileExports, arr: A
     arrayTypes[arr.len - 2] = arr
 
     if allowFull {
+        
         if hasMethods {
             sbprintf(sb,
                 `

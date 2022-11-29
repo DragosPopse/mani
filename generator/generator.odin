@@ -10,11 +10,19 @@ DEFAULT_PROC_ATTRIBUTES := Attributes {
     
 }
 
+// Note(Dragos): This should change
 DEFAULT_STRUCT_ATTRIBUTES := Attributes {
     "Type" = Attributes {
         "Full" = nil, 
         "Light" = nil,
     },
+}
+
+GeneratorConfig :: struct {
+    input_directory: string,
+    meta_directory: string,
+    files: map[string]PackageFile,
+    lua_types: map[string]string, // Key: odin type
 }
 
 
@@ -26,7 +34,6 @@ PackageFile :: struct {
     // Lua LSP metadata
     lua_filename: string,
     lua_builder: strings.Builder,
-    lua_types: map[string]string, // Key: odin type
 }
 
 package_file_make :: proc(path: string, luaPath: string) -> PackageFile {
@@ -37,14 +44,48 @@ package_file_make :: proc(path: string, luaPath: string) -> PackageFile {
 
         lua_builder = strings.builder_make(),
         lua_filename = luaPath,
-        lua_types = make(map[string]string)
     }
 }
 
-GeneratorConfig :: struct {
-    input_directory: string,
-    meta_directory: string,
-    files: map[string]PackageFile,
+create_config_from_args :: proc() -> (result: GeneratorConfig) {
+    result = GeneratorConfig{}
+    for arg in os.args {
+        pair := strings.split(arg, ":", context.temp_allocator)
+        if len(pair) == 1 {
+            // Input directory
+            result.input_directory = pair[0]
+            config_from_json(&result, pair[0])
+        }
+    }
+    return
+}
+
+config_from_json :: proc(config: ^GeneratorConfig, file: string) {
+    data, ok := os.read_entire_file(file)
+    if !ok {
+        fmt.printf("Failed to read config file\n")
+        return
+    }
+    defer delete(data)
+    str := strings.clone_from_bytes(data, context.temp_allocator)
+    obj, err := json.parse_string(str)
+    if err != .None {
+        return
+    }
+    defer json.destroy_value(obj) 
+
+    root := obj.(json.Object)
+    config.input_directory = strings.clone(root["dir"].(json.String))
+    config.meta_directory = strings.clone(root["meta_dir"].(json.String))
+    config.lua_types = make(map[string]string)
+    types := root["types"].(json.Object)
+    
+    for luaType, val in types {
+        odinTypes := val.(json.Array)
+        for type in odinTypes {
+            config.lua_types[type.(json.String)] = strings.clone(luaType)
+        }
+    }
 }
 
 
@@ -111,37 +152,9 @@ config_package :: proc(config: ^GeneratorConfig, pkg: string, filename: string) 
     }
 }
 
-config_from_json :: proc(config: ^GeneratorConfig, file: string) {
-    data, ok := os.read_entire_file(file)
-    if !ok {
-        fmt.printf("Failed to read config file\n")
-        return
-    }
-    defer delete(data)
-    str := strings.clone_from_bytes(data, context.temp_allocator)
-    obj, err := json.parse_string(str)
-    if err != .None {
-        return
-    }
-    defer json.destroy_value(obj) 
 
-    root := obj.(json.Object)
-    config.input_directory = strings.clone(root["dir"].(json.String))
-    config.meta_directory = strings.clone(root["meta_dir"].(json.String))
-}
 
-create_config_from_args :: proc() -> (result: GeneratorConfig) {
-    result = GeneratorConfig{}
-    for arg in os.args {
-        pair := strings.split(arg, ":", context.temp_allocator)
-        if len(pair) == 1 {
-            // Input directory
-            result.input_directory = pair[0]
-            config_from_json(&result, pair[0])
-        }
-    }
-    return
-}
+
 
 generate_struct_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, s: StructExport, filename: string) {
     using strings 
@@ -187,10 +200,6 @@ generate_methods_mapping :: proc(config: ^GeneratorConfig, exports: FileExports,
 }
 
 
-
-
-
-
 add_import :: proc(file: ^PackageFile, import_statement: FileImport) {
     if import_statement.name not_in file.imports {
         using strings
@@ -200,6 +209,7 @@ add_import :: proc(file: ^PackageFile, import_statement: FileImport) {
         file.imports[import_statement.name] = import_statement
     }
 }
+
 
 generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
     using strings
