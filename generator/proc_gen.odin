@@ -3,8 +3,8 @@ package mani_generator
 import "core:fmt"
 import "core:strings"
 
-write_proc_meta :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport) {
-    using strings
+write_proc_meta :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport, override_lua_name := "", start_param := 0) {
+    using strings, fmt
     sb := &(&config.files[exports.symbols_package]).lua_builder
 
     for comment in fn.lua_docs {
@@ -12,8 +12,57 @@ write_proc_meta :: proc(config: ^GeneratorConfig, exports: FileExports, fn: Proc
     }
     exportAttribs := fn.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_PROC_ATTRIBUTES
     luaName := exportAttribs["Name"].(String) if "Name" in exportAttribs else fn.name
+    if override_lua_name != "" {
+        luaName = override_lua_name
+    }
+    for param, i in fn.params[start_param:] {
+        paramType := param.type[1:] if is_pointer_type(param.type) else param.type
+        luaType := "any" // default unknown type
+        if type, found := config.lua_types[paramType]; found {
+            luaType = type 
+        } else {
+            #partial switch type in exports.symbols[paramType] {
+                case ArrayExport: {
+                    // Note(Dragos): Not the best. Will need some refactoring
+                    luaType = type.attribs["LuaExport"].(Attributes)["Name"].(String) or_else type.name
+     
+                }
+
+                case StructExport: {
+                    luaType = type.attribs["LuaExport"].(Attributes)["Name"].(String) or_else type.name
+                }
+            }
+        }
+        fmt.sbprintf(sb, "---@param %s %s\n", param.name, luaType)
+    }
+
+    for result, i in fn.results {
+        resultType := result.type[1:] if is_pointer_type(result.type) else result.type
+        luaType := "any" // default unknown type
+        if type, found := config.lua_types[resultType]; found {
+            luaType = type 
+        } else {
+            #partial switch type in exports.symbols[resultType] {
+                case ArrayExport: {
+                    // Note(Dragos): Not the best. Will need some refactoring
+                    luaType = type.attribs["LuaExport"].(Attributes)["Name"].(String) or_else type.name
+     
+                }
+
+                case StructExport: {
+                    luaType = type.attribs["LuaExport"].(Attributes)["Name"].(String) or_else type.name
+                }
+            }
+        }
+        if strings.has_prefix(result.name, "mani_") {
+            fmt.sbprintf(sb, "---@return %s\n", luaType)
+        } else {
+            fmt.sbprintf(sb, "---@return %s %s\n", luaType, result.name)
+        }
+        
+    }
+
     fmt.sbprintf(sb, "function %s(", luaName)
-    
     for param, i in fn.params {
         write_string(sb, param.name)
         if i != len(fn.params) - 1 do write_string(sb, ", ")

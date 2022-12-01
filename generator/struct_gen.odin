@@ -449,41 +449,30 @@ _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
 write_struct_meta :: proc(config: ^GeneratorConfig, exports: FileExports, s: StructExport) {
     using strings
     sb := &(&config.files[exports.symbols_package]).lua_builder
-    fmt.sbprintf(sb, "---@class %s\n", s.name)
+    
+    exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_PROC_ATTRIBUTES
+    // This makes LuaExport.Name not enitrely usable, I should map struct names to lua names
+    className :=  exportAttribs["Name"].(String) or_else s.name
+    fmt.sbprintf(sb, "---@class %s\n", className)
     for comment in s.lua_docs {
         fmt.sbprintf(sb, "---%s\n", comment)
     }
-    exportAttribs := s.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_PROC_ATTRIBUTES
-    // This makes LuaExport.Name not enitrely usable, I should map struct names to lua names
-    luaName :=  s.name
-    fmt.sbprintf(sb, "%s = {{}}\n\n", luaName)
+    fmt.sbprintf(sb, "%s = {{}}\n\n", className)
     
     if methodsAttrib, found := exportAttribs["Methods"]; found {
         methods := methodsAttrib.(Attributes)
         for odinProc, val in methods {
-            luaName: string 
+            methodName: string 
             if name, found := val.(String); found {
-                luaName = name 
+                methodName = name 
             } else {
-                luaName = odinProc
+                methodName = odinProc
             }
 
+            
             procExport := exports.symbols[odinProc].(ProcedureExport)
-            for comment in procExport.lua_docs {
-                fmt.sbprintf(sb, "---%s\n", comment)
-            }
+            write_proc_meta(config, exports, procExport, fmt.tprintf("%s:%s", className, methodName), 1)
 
-            fmt.sbprintf(sb, "function %s:%s(", s.name, luaName)
-
-            // We skip the first parameter, assuming it's the struct itself
-            // Is this legit? Needs testing
-            params := procExport.params[1:] 
-            for param, i in params {
-                write_string(sb, param.name)
-                if i != len(params) - 1 do write_string(sb, ", ")
-            }
-        
-            write_string(sb, ") end\n\n")
         }
     }
 }

@@ -9,7 +9,7 @@ import "core:c"
 
 //@field val integer The value of the object
 @(LuaExport = {
-    //Name = "half_object", // maybe use this as metatable name
+    Name = "half_object", // maybe use this as metatable name
     Type = { Full, Light },
     Fields = {
         value = "val",
@@ -37,9 +37,6 @@ HalfObject :: struct {
 }
 
 
-
-//@param v integer The integer used to make the object
-//@return HalfObject result The object that was made
 @(LuaExport)
 make_object :: proc(v: int) -> (result: HalfObject) {
     return {

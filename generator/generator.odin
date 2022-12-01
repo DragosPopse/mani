@@ -72,7 +72,7 @@ config_from_json :: proc(config: ^GeneratorConfig, file: string) {
     if err != .None {
         return
     }
-    defer json.destroy_value(obj) 
+    defer json.destroy_value(obj) // Keys need to be cloned too
 
     root := obj.(json.Object)
     config.input_directory = strings.clone(root["dir"].(json.String))
@@ -83,7 +83,7 @@ config_from_json :: proc(config: ^GeneratorConfig, file: string) {
     for luaType, val in types {
         odinTypes := val.(json.Array)
         for type in odinTypes {
-            config.lua_types[type.(json.String)] = strings.clone(luaType)
+            config.lua_types[strings.clone(type.(json.String))] = strings.clone(luaType)
         }
     }
 }
