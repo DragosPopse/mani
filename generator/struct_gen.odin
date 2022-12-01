@@ -272,10 +272,10 @@ _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
                 `, s.name, s.name)
         }
 
-        for k, field in s.fields {
-            shouldExport := false
-            name: string
-            if luaFields != nil {
+        if luaFields != nil {
+            for k, field in s.fields {
+                shouldExport := false
+                name: string
                 if luaField, ok := luaFields[field.odin_name]; ok {
                     shouldExport = true
                     if luaName, ok := luaField.(String); ok {
@@ -286,38 +286,17 @@ _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
                 } else {
                     shouldExport = false
                 }
-            } else {
-                name = field.odin_name 
-                shouldExport = true
-            }
-
-            if shouldExport {
-                fmt.sbprintf(sb, 
+                
+    
+                if shouldExport {
+                    fmt.sbprintf(sb, 
 `        
         case "{0:s}": {{
             mani.push_value(L, udata^.{1:s})
             return 1
         }}
 `,    name, field.odin_name)
-            }
-        }
-
-        if methodsAttrib, found := exportAttribs["Methods"]; found {
-            methods := methodsAttrib.(Attributes)
-            for odinProc, luaNameAttrib in methods {
-                luaName: string 
-                if name, found := luaNameAttrib.(String); found {
-                    luaName = name 
-                } else {
-                    luaName = odinProc
                 }
-                fmt.sbprintf(sb, 
-`        
-        case "{0:s}": {{
-            mani.push_value(L, _mani_{1:s})
-            return 1
-        }}
-`,    luaName, odinProc)
             }
         }
 
@@ -354,10 +333,10 @@ _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
             return 0
         }}
 `       , s.name, s.name)
-        for k, field in s.fields {
-            shouldExport := false
-            name: string
-            if luaFields != nil {
+        if luaFields != nil {
+            for k, field in s.fields {
+                shouldExport := false
+                name: string
                 if luaField, ok := luaFields[field.odin_name]; ok {
                     shouldExport = true
                     if luaName, ok := luaField.(String); ok {
@@ -368,19 +347,17 @@ _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
                 } else {
                     shouldExport = false
                 }
-            } else {
-                name = field.odin_name 
-                shouldExport = true
-            }
+                
 
-            if shouldExport {
-                fmt.sbprintf(sb, 
+                if shouldExport {
+                    fmt.sbprintf(sb, 
 `        
         case "{0:s}": {{
-            mani.to_value(L, 3, &udata.{1:s})
-            return 0
+            mani.to_value(L, 3, udata.{1:s})
+            return 1
         }}
 `,    name, field.odin_name)
+                }
             }
         }
 
@@ -405,10 +382,10 @@ _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
             lua.pushnil(L)
         }}
 `       , s.name, s.name)
-        for k, field in s.fields {
-            shouldExport := false
-            name: string
-            if luaFields != nil {
+        if luaFields != nil {
+            for k, field in s.fields {
+                shouldExport := false
+                name: string
                 if luaField, ok := luaFields[field.odin_name]; ok {
                     shouldExport = true
                     if luaName, ok := luaField.(String); ok {
@@ -419,18 +396,17 @@ _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
                 } else {
                     shouldExport = false
                 }
-            } else {
-                name = field.odin_name 
-                shouldExport = true
-            }
+                
 
-            if shouldExport {
-                fmt.sbprintf(sb, 
+                if shouldExport {
+                    fmt.sbprintf(sb, 
 `        
         case "{0:s}": {{
-            mani.to_value(L, 3, &udata^.{1:s})
+            mani.to_value(L, 3, udata^.{1:s})
+            return 1
         }}
 `,    name, field.odin_name)
+                }
             }
         }
 
