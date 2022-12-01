@@ -236,6 +236,7 @@ generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
 
             case ArrayExport: {
                 generate_array_lua_wrapper(config, exports, x, exports.relpath)
+                write_array_meta(config, exports, x)
             }
         }
     }

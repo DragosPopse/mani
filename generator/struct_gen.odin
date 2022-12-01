@@ -353,7 +353,7 @@ _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
                     fmt.sbprintf(sb, 
 `        
         case "{0:s}": {{
-            mani.to_value(L, 3, udata.{1:s})
+            mani.to_value(L, 3, &udata.{1:s})
             return 1
         }}
 `,    name, field.odin_name)
@@ -402,7 +402,7 @@ _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
                     fmt.sbprintf(sb, 
 `        
         case "{0:s}": {{
-            mani.to_value(L, 3, udata^.{1:s})
+            mani.to_value(L, 3, &udata^.{1:s})
             return 1
         }}
 `,    name, field.odin_name)
@@ -430,6 +430,37 @@ write_struct_meta :: proc(config: ^GeneratorConfig, exports: FileExports, s: Str
     fmt.sbprintf(sb, "---@class %s\n", className)
     for comment in s.lua_docs {
         fmt.sbprintf(sb, "---%s\n", comment)
+    }
+    if fieldsAttrib, found := exportAttribs["Fields"].(Attributes); found {
+        for k, field in s.fields {
+            name: string
+            luaType := "any" 
+            fieldType := field.type[1:] if is_pointer_type(field.type) else field.type
+            if luaField, ok := fieldsAttrib[field.odin_name]; ok {
+                if luaName, ok := luaField.(String); ok {
+                    name = luaName
+                } else {
+                    name = field.odin_name
+                } 
+
+                if type, found := config.lua_types[fieldType]; found {
+                    luaType = type 
+                } else {
+                    #partial switch type in exports.symbols[fieldType] {
+                        case ArrayExport: {
+                            // Note(Dragos): Not the best. Will need some refactoring
+                            luaType = type.attribs["LuaExport"].(Attributes)["Name"].(String) or_else type.name
+             
+                        }
+        
+                        case StructExport: {
+                            luaType = type.attribs["LuaExport"].(Attributes)["Name"].(String) or_else type.name
+                        }
+                    }
+                }
+                fmt.sbprintf(sb, "---@field %s %s\n", name, luaType)
+            } 
+        }
     }
     fmt.sbprintf(sb, "%s = {{}}\n\n", className)
     

@@ -537,3 +537,86 @@ write_lua_array_init :: proc(sb: ^strings.Builder, exports: FileExports, arr: Ar
     write_string(sb, "mani.add_struct(expStruct)")
     write_string(sb, "\n}\n\n")
 }
+
+int_pow :: proc(x: int, exp: uint) -> (result: int) {
+    result = x if exp > 0 else 1
+    for in 0..<exp {
+        result *= result
+    }
+    return
+}
+
+write_array_meta :: proc(config: ^GeneratorConfig, exports: FileExports, arr: ArrayExport) {
+    using strings
+    sb := &(&config.files[exports.symbols_package]).lua_builder
+    
+    exportAttribs := arr.attribs[LUAEXPORT_STR].(Attributes) or_else DEFAULT_PROC_ATTRIBUTES
+    // This makes LuaExport.Name not enitrely usable, I should map struct names to lua names
+    className :=  exportAttribs["Name"].(String) or_else arr.name
+    swizzleTypes := exportAttribs["SwizzleTypes"].(Attributes) 
+    allowedFields := cast(string)exportAttribs["Fields"].(Identifier)
+
+    fmt.sbprintf(sb, "---@class %s\n", className)
+    for comment in arr.lua_docs {
+        fmt.sbprintf(sb, "---%s\n", comment)
+    }
+
+    arrayTypes: [3]string
+    for typename in swizzleTypes {
+        type := exports.symbols[typename].(ArrayExport)
+        arrayTypes[type.len - 2] = type.attribs["LuaExport"].(Attributes)["Name"].(String) or_else type.name
+    }
+    arrayTypes[arr.len - 2] = className
+    arrayValueType := "any" // default unknown type
+        if type, found := config.lua_types[arr.value_type]; found {
+            arrayValueType = type 
+        } else {
+            #partial switch type in exports.symbols[arr.value_type] {
+                case ArrayExport: {
+                    // Note(Dragos): Not the best. Will need some refactoring
+                    arrayValueType = type.attribs["LuaExport"].(Attributes)["Name"].(String) or_else type.name
+     
+                }
+
+                case StructExport: {
+                    arrayValueType = type.attribs["LuaExport"].(Attributes)["Name"].(String) or_else type.name
+                }
+            }
+        }
+
+    for fieldsidx := 0; fieldsidx < len(allowedFields) / arr.len; fieldsidx += 1 {
+        fields := allowedFields[fieldsidx * arr.len : fieldsidx * arr.len + arr.len]
+
+        for i in 0..<arr.len {
+            fmt.sbprintf(sb, "---@field %c %s\n", fields[i], arrayValueType)
+            for j in 0..<arr.len {
+                fmt.sbprintf(sb, "---@field %c%c %s\n", fields[i], fields[j], arrayTypes[0])
+                for k in 0..<arr.len {
+                    fmt.sbprintf(sb, "---@field %c%c%c %s\n", fields[i], fields[j], fields[k], arrayTypes[1])
+                    for l in 0..<arr.len {
+                        fmt.sbprintf(sb, "---@field %c%c%c%c %s\n", fields[i], fields[j], fields[k], fields[l], arrayTypes[2])
+                    }
+                }
+            }
+        }
+    }
+    
+    fmt.sbprintf(sb, "%s = {{}}\n\n", className)
+    
+    if methodsAttrib, found := exportAttribs["Methods"]; found {
+        methods := methodsAttrib.(Attributes)
+        for odinProc, val in methods {
+            methodName: string 
+            if name, found := val.(String); found {
+                methodName = name 
+            } else {
+                methodName = odinProc
+            }
+
+            
+            procExport := exports.symbols[odinProc].(ProcedureExport)
+            write_proc_meta(config, exports, procExport, fmt.tprintf("%s:%s", className, methodName), 1)
+
+        }
+    }
+}

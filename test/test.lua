@@ -6,4 +6,3 @@ print(tostring(v.xy))
 print(tostring(v.yxx))
 print("Lua: " .. tostring(g_vec))
 g_vec.xyz = v.xxx
-
