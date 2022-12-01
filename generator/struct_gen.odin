@@ -202,11 +202,10 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
                 `, s.name, s.name)
         }
 
-
-        for k, field in s.fields {
-            shouldExport := false
-            name: string
-            if luaFields != nil {
+        if luaFields != nil {
+            for k, field in s.fields {
+                shouldExport := false
+                name: string
                 if luaField, ok := luaFields[field.odin_name]; ok {
                     shouldExport = true
                     if luaName, ok := luaField.(String); ok {
@@ -217,21 +216,20 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
                 } else {
                     shouldExport = false
                 }
-            } else {
-                name = field.odin_name 
-                shouldExport = true
-            }
-
-            if shouldExport {
-                fmt.sbprintf(sb, 
+                
+    
+                if shouldExport {
+                    fmt.sbprintf(sb, 
 `        
         case "{0:s}": {{
             mani.push_value(L, udata.{1:s})
             return 1
         }}
 `,    name, field.odin_name)
+                }
             }
         }
+        
         fmt.sbprintf(sb, 
 `
     }}
