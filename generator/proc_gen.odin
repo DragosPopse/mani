@@ -62,11 +62,11 @@ write_proc_meta :: proc(config: ^GeneratorConfig, exports: FileExports, fn: Proc
         
     }
 
+    params := fn.params[start_param:]
     fmt.sbprintf(sb, "function %s(", luaName)
-    for param, i in fn.params {
+    for param, i in params {
         write_string(sb, param.name)
-        if i != len(fn.params) - 1 do write_string(sb, ", ")
-
+        if i != len(params) - 1 do write_string(sb, ", ")
     }
 
     write_string(sb, ") end\n\n")
