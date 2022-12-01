@@ -21,6 +21,7 @@ DEFAULT_STRUCT_ATTRIBUTES := Attributes {
 GeneratorConfig :: struct {
     input_directory: string,
     meta_directory: string,
+    show_timings: bool,
     files: map[string]PackageFile,
     lua_types: map[string]string, // Key: odin type
 }
@@ -50,11 +51,16 @@ package_file_make :: proc(path: string, luaPath: string) -> PackageFile {
 create_config_from_args :: proc() -> (result: GeneratorConfig) {
     result = GeneratorConfig{}
     for arg in os.args {
-        pair := strings.split(arg, ":", context.temp_allocator)
-        if len(pair) == 1 {
-            // Input directory
-            result.input_directory = pair[0]
-            config_from_json(&result, pair[0])
+        if arg[0] == '-' {
+            pair := strings.split(arg, ":", context.temp_allocator)
+            switch pair[0] {
+                case "-show-timings": {
+                    result.show_timings = true
+                }
+            }
+        } else {
+            result.input_directory = arg
+            config_from_json(&result, arg)
         }
     }
     return

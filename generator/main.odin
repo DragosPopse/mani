@@ -18,10 +18,16 @@ import tokenizer "core:odin/tokenizer"
 import "core:mem"
 import "core:log"
 
+import "core:time"
+
 
 
 main :: proc() {
     using fmt  
+
+    stopwatch: time.Stopwatch 
+    time.stopwatch_start(&stopwatch) 
+
     context.logger = log.create_console_logger(.Debug, log.Options{.Terminal_Color, .Level, .Line, .Procedure})
     defer log.destroy_console_logger(context.logger)
 
@@ -79,6 +85,12 @@ main :: proc() {
             fmt.printf("Writing to %s\n", file.lua_filename)
             os.write_string(fd, str)
         }
+    }
+
+    time.stopwatch_stop(&stopwatch) 
+    duration := time.stopwatch_duration(stopwatch)
+    if config.show_timings {
+        fmt.printf("Total Duration - %f ms\n", cast(f64)duration / cast(f64)time.Millisecond)
     }
 }
 
