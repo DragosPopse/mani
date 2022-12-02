@@ -86,6 +86,7 @@ Vec2 :: [2]int
 })
 Vec3 :: [3]int
 
+// This works nice
 @(LuaExport = {
     Name = "vec4f64",
     Type = {Light, Full},
@@ -100,7 +101,6 @@ Vec3 :: [3]int
     },
 })
 Vec4 :: [4]int  
-
 
 
 // This seems to not generate correct intellisense
@@ -123,7 +123,6 @@ vec3_tostring :: proc(v: Vec3) -> string {
 vec2_tostring :: proc(v: Vec2) -> string {
     return fmt.tprintf("{{%d, %d}}", v.x, v.y)
 }
-
 
 main :: proc() {
     using fmt

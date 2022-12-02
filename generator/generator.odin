@@ -67,18 +67,16 @@ create_config_from_args :: proc() -> (result: GeneratorConfig) {
 }
 
 config_from_json :: proc(config: ^GeneratorConfig, file: string) {
-    data, ok := os.read_entire_file(file)
+    data, ok := os.read_entire_file(file, context.temp_allocator)
     if !ok {
         fmt.printf("Failed to read config file\n")
         return
     }
-    defer delete(data)
     str := strings.clone_from_bytes(data, context.temp_allocator)
-    obj, err := json.parse_string(str)
+    obj, err := json.parse_string(data = str, allocator = context.temp_allocator)
     if err != .None {
         return
     }
-    defer json.destroy_value(obj) // Keys need to be cloned too
 
     root := obj.(json.Object)
     config.input_directory = strings.clone(root["dir"].(json.String))

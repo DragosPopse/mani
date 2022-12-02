@@ -6,3 +6,7 @@ print(tostring(v.xy))
 print(tostring(v.yxx))
 print("Lua: " .. tostring(g_vec))
 g_vec.xyz = v.xxx
+
+v.xxx = v.xyz 
+local v = make_object(2)
+v:mod(2)
