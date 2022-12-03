@@ -1,5 +1,6 @@
 package test 
 
+
 import "core:fmt"
 import "shared:lua"
 import "shared:luaL"
@@ -124,9 +125,14 @@ vec2_tostring :: proc(v: Vec2) -> string {
     return fmt.tprintf("{{%d, %d}}", v.x, v.y)
 }
 
-main :: proc() {
+@(LuaImport = {
+    GlobalSymbol = "update",
+})
+update: proc(dt: f64) -> (int, int)
+
+main :: proc() { 
     using fmt
-    
+    update(32)
 
     L := luaL.newstate()
     luaL.openlibs(L)
@@ -143,5 +149,4 @@ main :: proc() {
 
     fmt.printf("Odin: %s\n", vec3_tostring(v))
     
-   
 }
