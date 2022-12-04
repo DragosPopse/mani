@@ -233,9 +233,8 @@ generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
                     generate_proc_lua_wrapper(config, exports, x, exports.relpath)
                     write_proc_meta(config, exports, x)
                 } else if "LuaImport" in x.attribs {
-
-                }
-                
+                    generate_pcall_wrapper(config, exports, x, exports.relpath)
+                }      
             }
 
             case StructExport: {

@@ -39,7 +39,7 @@ write_lua_array_index :: proc(sb: ^strings.Builder, exports: FileExports, arr: A
         
         if hasMethods {
             sbprintf(sb,
-                `
+`
 _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 
     context = mani.default_context()
@@ -85,10 +85,10 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 
     return 1
 }}
-            `, arr.name, arrayTypes[2].name, arr.len, allowedFields)
+`, arr.name, arrayTypes[2].name, arr.len, allowedFields)
         } else {
             sbprintf(sb,
-                `
+`
 _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 
     context = mani.default_context()
@@ -131,7 +131,7 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 
     return 1
 }}
-            `, arr.name, arrayTypes[2].name, arr.len, allowedFields)
+`, arr.name, arrayTypes[2].name, arr.len, allowedFields)
         }
         
     }
@@ -185,7 +185,7 @@ _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
 
     return 1
 }}
-            `, arr.name, arrayTypes[2].name, arr.len, allowedFields)
+`, arr.name, arrayTypes[2].name, arr.len, allowedFields)
         } else {
             sbprintf(sb,
                 `
@@ -231,7 +231,7 @@ _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
     
         return 1
     }}
-            `, arr.name, arrayTypes[2].name, arr.len, allowedFields)
+`, arr.name, arrayTypes[2].name, arr.len, allowedFields)
         }
     }
     
@@ -260,7 +260,7 @@ write_lua_array_newindex :: proc(sb: ^strings.Builder, exports: FileExports, arr
 
     if allowFull {
         sbprintf(sb,
-            `
+`
 _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 
     context = mani.default_context()
@@ -318,12 +318,12 @@ _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
 
     return 0
 }}
-        `, arr.name, arr.len, arrayTypes[0].name, arrayTypes[1].name, arrayTypes[2].name, allowedFields)
+`, arr.name, arr.len, arrayTypes[0].name, arrayTypes[1].name, arrayTypes[2].name, allowedFields)
     }
 
     if allowLight {
         sbprintf(sb,
-            `
+`
 _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
 
     context = mani.default_context()
@@ -380,7 +380,7 @@ _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
 
     return 0
 }}
-        `, arr.name, arr.len, arrayTypes[0].name, arrayTypes[1].name, arrayTypes[2].name, allowedFields)
+`, arr.name, arr.len, arrayTypes[0].name, arrayTypes[1].name, arrayTypes[2].name, allowedFields)
     }
 
 }

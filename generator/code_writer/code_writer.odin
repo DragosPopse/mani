@@ -24,7 +24,7 @@ writer_destroy :: proc(w: ^OdinWriter) {
 
 indent :: proc(using w: ^OdinWriter) {
     using strings
-    for in 0..=curr_indent {
+    for in 0..<curr_indent {
         write_string(sb, indentation)
     }   
 }
@@ -35,9 +35,10 @@ next_line :: proc(using w: ^OdinWriter) {
 }
 
 // This should be used in the same block. It won't modify indentation
-writef :: proc(using w: ^OdinWriter, format: string, args: ..any) {
-    using fmt 
-    sbprintf(sb, format, args)
+write :: proc(using w: ^OdinWriter, str: string) {
+    using fmt, strings
+    indent(w)
+    write_string(sb, str)
     next_line(w)
 }
 

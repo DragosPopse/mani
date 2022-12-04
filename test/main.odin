@@ -150,6 +150,8 @@ my_impl2 :: proc() {
 }
 
 // Option B
+// The current implementation makes it weird to add other attributes. Let's change that
+
 @(LuaImport = {
     GlobalSymbol = "Update", // This could be optional. If left empty it would just be a wrapper around C api calls
 })
@@ -174,6 +176,7 @@ main :: proc() {
     mani.init(L, &mani.global_state)
     obj := make_object(20)
     
+ 
 
     v: Vec3 = {1, 2, 3}
     mani.set_global(L, "g_vec", &v)
@@ -181,7 +184,7 @@ main :: proc() {
     if luaL.dofile(L, "test/test.lua") != lua.OK {
         fmt.printf("LuaError: %s\n", lua.tostring(L, -1))
     }
-
+    update(32) 
     fmt.printf("Odin: %s\n", vec3_tostring(v))
     
 }

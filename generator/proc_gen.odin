@@ -3,6 +3,8 @@ package mani_generator
 import "core:fmt"
 import "core:strings"
 
+import cw "code_writer"
+
 write_proc_meta :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport, override_lua_name := "", start_param := 0) {
     using strings, fmt
     sb := &(&config.files[exports.symbols_package]).lua_builder
@@ -185,11 +187,45 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
 }
 
 generate_pcall_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport, filename: string) {
-    using strings
+    using strings, fmt
     fn_name := strings.concatenate({"_mani_", fn.name}, context.temp_allocator)
     
     sb := &(&config.files[exports.symbols_package]).builder
 
     importAttribs := fn.attribs["LuaImport"].(Attributes) // I should or_else this. This is not entirely correct right now
-    
+    writer := cw.writer_make(sb, "    ")
+    mani_wrapper: {
+        cw.begin_block_decl(&writer, fn_name, fn.type)
+        cw.write(&writer, "L := mani.global_state.lua_state")
+        
+        if global, found := importAttribs["GlobalSymbol"].(String); found {
+            cw.write(&writer, tprintf("lua.getglobal(L, \"%s\")", global))
+        }
+     
+        for param in fn.params {
+            cw.write(&writer, tprintf("mani.push_value(L, %s%s)", "&" if is_pointer_type(param.type) else "", param.name))
+        }
+
+        if_stmt: {
+            cw.begin_if(&writer, fmt.tprintf("lua.pcall(L, %d, %d, 0) != lua.OK", len(fn.params), len(fn.results)))
+            cw.write(&writer, tprintf("fmt.printf(\"Error calling function %s: %%s\", lua.tostring(L, -1))", fn_name))
+        }
+
+        for result, i in fn.results {
+            cw.write(&writer, tprintf("_result%d: %s", i, result.type))
+            cw.write(&writer, tprintf("mani.to_value(L, -%d, &_result%d)", i + 1, i))
+        }
+
+        cw.write(&writer, tprintf("lua.pop(L, %d)", len(fn.results)))
+
+        if len(fn.results) > 0 {
+            cw.indent(&writer)
+            write_string(sb, "return ")
+            for result, i in fn.results {
+                sbprintf(sb, "_result%d", i)
+                if i < len(fn.results) - 1 do write_string(sb, ", ")
+            }
+            cw.next_line(&writer)
+        }
+    }
 }

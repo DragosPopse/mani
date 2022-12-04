@@ -86,6 +86,7 @@ ArrayExport :: struct {
 ProcedureExport :: struct {
     using base: NodeExport,
     name: string,
+    type: string,
     calling_convention: string,
     params: #soa [dynamic]Field,
     results: #soa [dynamic]Field,
@@ -278,7 +279,7 @@ parse_lua_annotations :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, mapp
 }
 
 validate_proc_attributes :: proc(proc_decl: ^ast.Proc_Lit, attribs: Attributes) -> (err: AttribErr, msg: Maybe(string)) {
-    if LUAEXPORT_STR not_in attribs {
+    if LUAEXPORT_STR not_in attribs && "LuaImport" not_in attribs {
         return .Skip, nil
     }
 
@@ -464,8 +465,8 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
     procType := v.type
     declName := value_decl.names[0].derived.(^ast.Ident).name // Note(Dragos): Does this work with 'a, b: int' ?????
 
-   
-    result.name = declName 
+    result.name = declName
+    result.type = root.src[procType.pos.offset : procType.end.offset]
     switch conv in procType.calling_convention {
         case string: {
             result.calling_convention = conv
