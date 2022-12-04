@@ -65,15 +65,15 @@ NodeExport :: struct {
     lua_docs: [dynamic]string,
 }
 
-StructField :: struct {
-    odin_name: string,
+Field :: struct {
+    name: string,
     type: string,
 }
 
 StructExport :: struct {
     using base: NodeExport,
     name: string,
-    fields: map[string]StructField, // Key: odin_name
+    fields: map[string]Field, // Key: odin_name
 }
 
 ArrayExport :: struct {
@@ -87,12 +87,8 @@ ProcedureExport :: struct {
     using base: NodeExport,
     name: string,
     calling_convention: string,
-    params: [dynamic]struct {
-        name, type: string,
-    },
-    results: [dynamic]struct {
-        name, type: string,
-    },
+    params: #soa [dynamic]Field,
+    results: #soa [dynamic]Field,
 }
 
 SymbolExport :: union {
@@ -412,7 +408,7 @@ parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: 
     }
   
     result.name = value_decl.names[0].derived.(^ast.Ident).name
-    result.fields = make(map[string]StructField) 
+    result.fields = make(map[string]Field) 
     
     for field in struct_decl.fields.list {
         
@@ -430,8 +426,8 @@ parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: 
         }
         for name in field.names {
             fName := name.derived.(^ast.Ident).name 
-            result.fields[fName] = StructField {
-                odin_name = fName,
+            result.fields[fName] = Field {
+                name = fName,
                 type = fType,
             }
         }
@@ -486,8 +482,8 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
     // Note(Dragos): these should be checked for 0
     
     
-    result.params = make(type_of(result.params))
-    result.results = make(type_of(result.results))
+    result.params = make_soa(type_of(result.params))
+    result.results = make_soa(type_of(result.results))
     // Get parameters
     if procType.params != nil {
         
@@ -506,7 +502,7 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
             }
 
             for name in param.names {
-                append(&result.params, type_of(result.params[0]){
+                append_soa(&result.params, Field{
                     name = name.derived.(^ast.Ident).name, 
                     type = paramType,
                 })
@@ -543,7 +539,7 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
             
     
 
-            append(&result.results, type_of(result.results[0]){
+            append_soa(&result.results, Field{
                 name = resName, 
                 type = resType,
             })

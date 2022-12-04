@@ -182,6 +182,14 @@ generate_proc_lua_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports
     write_string(sb, "mani.add_function(fn)\n")
 
     write_string(sb, "}\n\n")
+}
+
+generate_pcall_wrapper :: proc(config: ^GeneratorConfig, exports: FileExports, fn: ProcedureExport, filename: string) {
+    using strings
+    fn_name := strings.concatenate({"_mani_", fn.name}, context.temp_allocator)
     
+    sb := &(&config.files[exports.symbols_package]).builder
+
+    importAttribs := fn.attribs["LuaImport"].(Attributes) // I should or_else this. This is not entirely correct right now
     
 }

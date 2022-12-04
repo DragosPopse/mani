@@ -229,8 +229,13 @@ generate_lua_exports :: proc(config: ^GeneratorConfig, exports: FileExports) {
         
         switch x in exp {
             case ProcedureExport: {
-                generate_proc_lua_wrapper(config, exports, x, exports.relpath)
-                write_proc_meta(config, exports, x)
+                if "LuaExport" in x.attribs {
+                    generate_proc_lua_wrapper(config, exports, x, exports.relpath)
+                    write_proc_meta(config, exports, x)
+                } else if "LuaImport" in x.attribs {
+
+                }
+                
             }
 
             case StructExport: {

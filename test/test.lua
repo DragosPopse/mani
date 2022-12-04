@@ -11,7 +11,7 @@ v.xxx = v.xyz
 local v = make_object(2)
 v:mod(2)
 
-function update(dt) 
+function Update(dt) 
     print("Running Update with " .. dt)
     return 1, 2
 end

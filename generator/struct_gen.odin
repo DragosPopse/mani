@@ -206,12 +206,12 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
             for k, field in s.fields {
                 shouldExport := false
                 name: string
-                if luaField, ok := luaFields[field.odin_name]; ok {
+                if luaField, ok := luaFields[field.name]; ok {
                     shouldExport = true
                     if luaName, ok := luaField.(String); ok {
                         name = luaName
                     } else {
-                        name = field.odin_name
+                        name = field.name
                     }  
                 } else {
                     shouldExport = false
@@ -225,7 +225,7 @@ _mani_index_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
             mani.push_value(L, udata.{1:s})
             return 1
         }}
-`,    name, field.odin_name)
+`,    name, field.name)
                 }
             }
         }
@@ -276,12 +276,12 @@ _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
             for k, field in s.fields {
                 shouldExport := false
                 name: string
-                if luaField, ok := luaFields[field.odin_name]; ok {
+                if luaField, ok := luaFields[field.name]; ok {
                     shouldExport = true
                     if luaName, ok := luaField.(String); ok {
                         name = luaName
                     } else {
-                        name = field.odin_name
+                        name = field.name
                     }  
                 } else {
                     shouldExport = false
@@ -295,7 +295,7 @@ _mani_index_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
             mani.push_value(L, udata^.{1:s})
             return 1
         }}
-`,    name, field.odin_name)
+`,    name, field.name)
                 }
             }
         }
@@ -337,12 +337,12 @@ _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
             for k, field in s.fields {
                 shouldExport := false
                 name: string
-                if luaField, ok := luaFields[field.odin_name]; ok {
+                if luaField, ok := luaFields[field.name]; ok {
                     shouldExport = true
                     if luaName, ok := luaField.(String); ok {
                         name = luaName
                     } else {
-                        name = field.odin_name
+                        name = field.name
                     }  
                 } else {
                     shouldExport = false
@@ -356,7 +356,7 @@ _mani_newindex_{0:s} :: proc "c" (L: ^lua.State) -> c.int {{
             mani.to_value(L, 3, &udata.{1:s})
             return 1
         }}
-`,    name, field.odin_name)
+`,    name, field.name)
                 }
             }
         }
@@ -386,12 +386,12 @@ _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
             for k, field in s.fields {
                 shouldExport := false
                 name: string
-                if luaField, ok := luaFields[field.odin_name]; ok {
+                if luaField, ok := luaFields[field.name]; ok {
                     shouldExport = true
                     if luaName, ok := luaField.(String); ok {
                         name = luaName
                     } else {
-                        name = field.odin_name
+                        name = field.name
                     }  
                 } else {
                     shouldExport = false
@@ -405,7 +405,7 @@ _mani_newindex_{0:s}_ref :: proc "c" (L: ^lua.State) -> c.int {{
             mani.to_value(L, 3, &udata^.{1:s})
             return 1
         }}
-`,    name, field.odin_name)
+`,    name, field.name)
                 }
             }
         }
@@ -436,11 +436,11 @@ write_struct_meta :: proc(config: ^GeneratorConfig, exports: FileExports, s: Str
             name: string
             luaType := "any" 
             fieldType := field.type[1:] if is_pointer_type(field.type) else field.type
-            if luaField, ok := fieldsAttrib[field.odin_name]; ok {
+            if luaField, ok := fieldsAttrib[field.name]; ok {
                 if luaName, ok := luaField.(String); ok {
                     name = luaName
                 } else {
-                    name = field.odin_name
+                    name = field.name
                 } 
 
                 if type, found := config.lua_types[fieldType]; found {

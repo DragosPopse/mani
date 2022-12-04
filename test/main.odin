@@ -6,6 +6,7 @@ import "shared:lua"
 import "shared:luaL"
 import "shared:mani"
 import "core:c"
+import "core:strings"
 
 
 
@@ -125,21 +126,55 @@ vec2_tostring :: proc(v: Vec2) -> string {
     return fmt.tprintf("{{%d, %d}}", v.x, v.y)
 }
 
+
+
+// LuaImport should work with tables(maps) and other data types
+
+str1 := "MyName"
+str2 := "MySecondName"
+mapping := map[proc()]string {
+    test_proc = str1,
+    test_proc2 = str2,
+}
+
+// Option A 
+mapping2 := map[rawptr]string {}
+test_proc: proc() 
+my_impl :: proc() {
+    fmt.printf("My string be %s\n", mapping2[&test_proc])
+}
+
+test_proc2: proc()
+my_impl2 :: proc() {
+    fmt.printf("My string be %s\n", mapping2[&test_proc2])
+}
+
+// Option B
 @(LuaImport = {
-    GlobalSymbol = "update",
+    GlobalSymbol = "Update", // This could be optional. If left empty it would just be a wrapper around C api calls
 })
-update: proc(dt: f64) -> (int, int)
+update :: proc(dt: f64) -> (int, int) { 
+    val1, val2 := _mani_update(dt)
+    // do some for processing
+    return val1, val2 
+}
 
 main :: proc() { 
-    using fmt
-    update(32)
+    test_proc = my_impl
+    test_proc2 = my_impl2
+    // I need to init here
+    mapping2[rawptr(my_impl)] = str1
+    mapping2[cast(rawptr)my_impl2] = str2
+    test_proc()
+    test_proc2()
 
     L := luaL.newstate()
     luaL.openlibs(L)
   
-    mani.export_all(L, mani.global_state)
+    mani.init(L, &mani.global_state)
     obj := make_object(20)
     
+
     v: Vec3 = {1, 2, 3}
     mani.set_global(L, "g_vec", &v)
 

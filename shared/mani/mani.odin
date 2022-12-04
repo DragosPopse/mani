@@ -54,6 +54,7 @@ StructExport :: struct {
 
 // TODO(Add lua state in here aswell) (then we can have a single init function instead of export_all)
 State :: struct {
+    lua_state: ^lua.State,
     procs: map[OdinName]ProcExport, // Key: odin_name
     structs: map[typeid]StructExport, // Key: type 
     udata_metatable_mapping: map[typeid]cstring, // Key: odin type; Value: lua name
@@ -85,7 +86,8 @@ add_struct :: proc(s: StructExport) {
 }
 
 
-export_all :: proc(L: ^lua.State, using state: State) {
+init :: proc(L: ^lua.State, using state: ^State) {
+    lua_state = L
     if default_context == nil {
         default_context = runtime.default_context 
     } 
