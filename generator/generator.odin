@@ -24,6 +24,9 @@ GeneratorConfig :: struct {
     show_timings: bool,
     files: map[string]PackageFile,
     lua_types: map[string]string, // Key: odin type
+
+    odin_ext: string,
+    lua_ext: string,
 }
 
 
@@ -81,6 +84,8 @@ config_from_json :: proc(config: ^GeneratorConfig, file: string) {
     root := obj.(json.Object)
     config.input_directory = strings.clone(root["dir"].(json.String))
     config.meta_directory = strings.clone(root["meta_dir"].(json.String))
+    config.odin_ext = strings.clone(root["odin_ext"].(json.String) or_else "manigen.odin")
+    config.lua_ext = strings.clone(root["lua_ext"].(json.String) or_else "lsp.lua")
     config.lua_types = make(map[string]string)
     types := root["types"].(json.Object)
     
@@ -102,8 +107,8 @@ config_package :: proc(config: ^GeneratorConfig, pkg: string, filename: string) 
         path := filepath.dir(filename, context.temp_allocator)
     
         name := filepath.stem(filename)
-        filename := strings.concatenate({path, "/", pkg, ".generated.odin"})
-        luaFilename := strings.concatenate({config.meta_directory, "/", pkg, ".lsp.lua"})
+        filename := strings.concatenate({path, "/", pkg, config.odin_ext})
+        luaFilename := strings.concatenate({config.meta_directory, "/", pkg, config.lua_ext})
 
         config.files[pkg] = package_file_make(filename, luaFilename)
         sb := &(&config.files[pkg]).builder

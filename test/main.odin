@@ -137,8 +137,6 @@ main :: proc() {
     mani.init(L, &mani.global_state)
     obj := make_object(20)
     
- 
-
     v: Vec3 = {1, 2, 3}
     mani.set_global(L, "g_vec", &v)
 
