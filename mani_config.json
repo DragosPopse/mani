@@ -1,6 +1,11 @@
 {
     "dir": "test",
     "meta_dir": "test",
+    
+    "todo": {
+        "odin_ext": "mani.odin",
+        "lua_ext": "lsp.odin"
+    },
 
     "types": {
         "integer": [
