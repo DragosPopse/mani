@@ -1,5 +1,5 @@
 # mani
-Mani is an odin-to-lua exporter that generates Lua C API bindings for your odin source files. This project is WIP, and doesn't have many features yet. The attributes API is subject to considerable amount of changes
+Mani is an odin-to-lua exporter that generates Lua C API bindings and LSP code completion for your odin source files. 
 
 ```odin 
 package main
@@ -31,7 +31,8 @@ print("Results from Call: " .. res1 .. " " .. res2)
 ```
 
 ## Getting Started
-- Install https://github.com/DragosPopse/odin-lua
+- Download [odin-lua](https://github.com/DragosPopse/odin-lua)
+- For lua code completion, download [lua-language-server](https://github.com/sumneko/lua-language-server)
 - Place the contents of the shared directory in `%ODIN_ROOT%/shared` folder or a collection of your choice. If `ODIN_ROOT` is configured, you can just call `copy_to_shared.bat`
 - Build `generator` directory `odin build generator -out:build/mani.exe`
 - Create a `.json` file with the configuration of the generator. See [the example config](mani_config.json) for all the available options
