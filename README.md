@@ -30,19 +30,19 @@ res1, res2 = my_nice_fn(3)
 print("Results from Call: " .. res1 .. " " .. res2)
 ```
 
-## Features
-- Global function declarations via `@LuaExport`. Functions support multiple parameters and return values.
-- Parameters and results can be all primitive lua types (ints, floats, booleans). There is no support for userdata and lightuserdata yet. 
-- The string support is still WIP due to the fact it requires conversion from `string` to `cstring`. 
-
-## Usage
+## Getting Started
 - Install https://github.com/DragosPopse/odin-lua
-- Place the contents of the shared directory in ODIN_ROOT/shared collection
+- Place the contents of the shared directory in `%ODIN_ROOT%/shared` folder or a collection of your choice
 - Build `generator` directory `odin build generator -out:build/mani.exe`
 - The output executable accepts a directory as parameter `mani path/to/src`
 - The output of `mani` is a `*.generated.odin` file for each package encountered in the directory and it's subdirectories
 - When initializing the lua state, call `mani.export_all` in order to hook all the code generated to your lua state
 - Build your source with the `-ignore-unkown-attributes` flag
+
+## Overview
+
+
+
 
 ```odin
 import lua "shared:lua"
