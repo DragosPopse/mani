@@ -45,7 +45,12 @@ half_object_print :: proc(using v: HalfObject) {
 - Pointers are only supported with exported structs/arrays
 - Multiple return values are supported
 
-### Structs
+### Structs 
+- Code completion is automatically configured to work for the new struct type declared
+- You must specify the userdata `Type` in `LuaExport` to either be `Full`, `Light` or both of them
+- Mani converts automatically between light and full userdata, depending on the context. If the user needs a value, it will be a value.
+- The term light userdata in mani's context is not fully accurate. Light userdatas cannot have metatables. What mani does is create a full userdata which is a wrapper around a single pointer. This allows to modify odin from within lua, while still allowing a metatable. 
+- Passing a struct by value or pointer in odin doesn't have any correlation with the `Type` supported. It will *just work*
 ```odin 
 @(LuaExport = {
     Name = "half_object", // optional lua name
@@ -95,10 +100,73 @@ half_object_tostring :: proc(using v: HalfObject) -> string {
     return fmt.tprintf("HalfObject {{%d, %d}}", value, hidden)
 }
 ```
-- Mani converts automatically between light and full userdata, depending on the context. If the user needs a value, it will be a value. 
-- Code completion is automatically configured to work for the new struct type declared
+
 
 ### Arrays
+- Mani supports arrays up to 4 elements
+- Swizzling support in lua!!!
+- Methods/metamethods support
+- Because you can convert make conversions between different sizes of arrays via swizzling, mani requires to specify the conversions via `SwizzleTypes`, while also exporting every type defined in there. This is a bit of a headache, and I'm hoping to find a better solution to this
+- Distinct types not yet supported, because distinct and swizzling works rather weird in odin aswell
+```odin
+@(LuaExport = {
+    Name = "vec2f64",
+    Type = {Light, Full},
+    SwizzleTypes = {Vec3, Vec4}, // For type conversions when swizzling (local my_vec3 = v.xyy) 
+    Fields = xyrg, // Needs to be divizible by len(array). It will treat x, r as arr[0] and y,g as arr[1]
+    Metamethods = {
+        __tostring = vec2_tostring,
+    },
+})
+Vec2 :: [2]int 
+
+// We will need to declare all our swizzles
+
+@(LuaExport = {
+    Name = "vec3f64",
+    Type = {Light, Full},
+    SwizzleTypes = {Vec2, Vec4}, // A Vec3 can construct a Vec2 and a Vec4
+    Fields = xyzrgb,
+    Metamethods = {
+        __tostring = vec3_tostring,
+    },
+})
+Vec3 :: [3]int
+
+
+@(LuaExport = {
+    Name = "vec4f64",
+    Type = {Light, Full},
+    SwizzleTypes = {Vec2, Vec3},
+    Fields = xyzwrgba,
+    Methods = {
+        vec4_tostring = "stringify",
+    },
+    Metamethods = {
+        __tostring = vec4_tostring,
+    },
+})
+Vec4 :: [4]int  
+
+
+@(LuaExport)
+make_vec4 :: proc(x: int, y: int, z: int, w: int) -> Vec4 {
+    return {x, y, z, w}
+}
+
+@(LuaExport)
+vec4_tostring :: proc(v: Vec4) -> string {
+    return fmt.tprintf("{{%d, %d, %d, %d}}", v.x, v.y, v.z, v.w)
+}
+
+// ... and so on
+```
+```lua
+-- lua code
+local v = make_vec3(2, 3, 4)
+local v2 = v.xz -- v2 is of type Vec2 
+v2.xy = v.zz 
+```
 
 ### LSP Code Completion
 ![](media/intellisense.gif)
