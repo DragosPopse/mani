@@ -32,18 +32,12 @@ print("Results from Call: " .. res1 .. " " .. res2)
 
 ## Getting Started
 - Install https://github.com/DragosPopse/odin-lua
-- Place the contents of the shared directory in `%ODIN_ROOT%/shared` folder or a collection of your choice
+- Place the contents of the shared directory in `%ODIN_ROOT%/shared` folder or a collection of your choice. If `ODIN_ROOT` is configured, you can just call `copy_to_shared.bat`
 - Build `generator` directory `odin build generator -out:build/mani.exe`
-- The output executable accepts a directory as parameter `mani path/to/src`
-- The output of `mani` is a `*.generated.odin` file for each package encountered in the directory and it's subdirectories
+- Create a `.json` file with the configuration of the generator. See !(mani_config.json) for all the available options
+- The output executable accepts a json as parameter `mani config.json`. You can specify `--show-timings` for benchmarking the performance of the generation. 
+- The output of `mani` is a source file `*.(config.odin_ext)` and a LSP file `*(config.lua_ext)` for each package encountered in the directory and it's subdirectories.
 - When initializing the lua state, call `mani.export_all` in order to hook all the code generated to your lua state
-- Build your source with the `-ignore-unkown-attributes` flag
-
-## Overview
-
-
-
-
 ```odin
 import lua "shared:lua"
 import luaL "shared:luaL"
@@ -53,3 +47,9 @@ main :: proc() {
     mani.export_all(L, mani.global_state)
 }
 ```
+- Build your source with the `-ignore-unkown-attributes` flag
+
+## Overview
+
+
+
