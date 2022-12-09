@@ -32,6 +32,74 @@ print("Results from Call: " .. res1 .. " " .. res2)
 
 ## Overview
 
+### Procedures
+```odin
+@(LuaExport = {
+    Name = "print_object", // optional
+})
+half_object_print :: proc(using v: HalfObject) {
+    fmt.printf("My value is %d, and my hidden is %d\n", value, hidden)
+}
+```
+- Procedures support all primitive types (string, cstring, ints, floats) as results and parameters
+- Pointers are only supported with exported structs/arrays
+- Multiple return values are supported
+
+### Structs
+```odin 
+@(LuaExport = {
+    Name = "half_object", // optional lua name
+    Type = { // Light or Full userdata. You must have at least one of these
+        Full, // The struct can be allocated in lua fully
+        Light // A wrapper to a pointer, usually from odin. You can modify odin from lua with this
+    },
+
+    // Optional field access
+    Fields = {
+        value = "val",
+    },
+
+    // Methods/metamethods assume that the first parameter of the proc is the object itself. 
+    // The object can either be passed by value or by pointer
+    // All methods/metamethods require to be @LuaExport'ed
+    Methods = {
+        half_object_print = "print",
+        mod_object = "mod",
+    },
+    Metamethods = {
+        __tostring = half_object_tostring,
+    },
+})
+HalfObject :: struct {
+    value: int, 
+    hidden: int, // Not in fields, therefore private
+}
+
+
+@(LuaExport)
+make_object :: proc(v: int) -> (result: HalfObject) {
+    return {
+        value = v,
+        hidden = v + 1,
+    }
+}
+
+@(LuaExport)
+mod_object :: proc(o: ^HalfObject, v: int) {
+    o.value = v
+}
+
+@(LuaExport)
+half_object_tostring :: proc(using v: HalfObject) -> string {
+    // Lua will allocate a string when you push it, so this can be on the temp allocator
+    return fmt.tprintf("HalfObject {{%d, %d}}", value, hidden)
+}
+```
+- Mani converts automatically between light and full userdata, depending on the context. If the user needs a value, it will be a value. 
+- Code completion is automatically configured to work for the new struct type declared
+
+### Arrays
+
 ### LSP Code Completion
 ![](media/intellisense.gif)
 
