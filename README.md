@@ -30,6 +30,11 @@ res1, res2 = my_nice_fn(3)
 print("Results from Call: " .. res1 .. " " .. res2)
 ```
 
+## Overview
+
+### LSP Code Completion
+![](media/intellisense.gif)
+
 ## Getting Started
 - Download [odin-lua](https://github.com/DragosPopse/odin-lua)
 - For lua code completion, download [lua-language-server](https://github.com/sumneko/lua-language-server)
@@ -56,9 +61,5 @@ main :: proc() {
 - In order to prevent mani for looking to generate code for the already generated files, provide a longer extension for the `odin_ext` and `lua_ext`. For example: `.generated.odin`/`.lsp.lua`
 - `types` accepts a dictionary of arrays. Each key will represent a lua type, while the array value will be a list of odin types to be converted to lua. This is used by the code completion generation. The types exported by your application will already be correctly configured, so you only need to worry about primitives. Because the parser doesn't do any package resolution, `c.int` and `int` both need to be there and will be treated as distinct types. Aliasing any one of them in your code means that you need to add the alias in your configuration aswell.
 
-## Overview
-
-### LSP Code Completion
-![](media/intellisense.gif)
 
 
