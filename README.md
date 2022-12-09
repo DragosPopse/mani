@@ -58,5 +58,7 @@ main :: proc() {
 
 ## Overview
 
+### LSP Code Completion
+![](media/intellisense.gif)
 
 
