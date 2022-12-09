@@ -32,7 +32,11 @@ print("Results from Call: " .. res1 .. " " .. res2)
 
 ## Overview
 
-### Procedures
+### LSP Code Completion
+- Mani generates intellisense data for the lua language server.
+![](media/intellisense.gif)
+
+### Procedures Exporting
 ```odin
 @(LuaExport = {
     Name = "print_object", // optional
@@ -45,7 +49,7 @@ half_object_print :: proc(using v: HalfObject) {
 - Pointers are only supported with exported structs/arrays
 - Multiple return values are supported
 
-### Structs 
+### Structs Exporting
 - Code completion is automatically configured to work for the new struct type declared
 - You must specify the userdata `Type` in `LuaExport` to either be `Full`, `Light` or both of them
 - Mani converts automatically between light and full userdata, depending on the context. If the user needs a value, it will be a value.
@@ -102,9 +106,9 @@ half_object_tostring :: proc(using v: HalfObject) -> string {
 ```
 
 
-### Arrays
+### Arrays Exporting
 - Mani supports arrays up to 4 elements
-- Swizzling support in lua!!!
+- Swizzling support in lua!!! With intellisense!!!!
 - Methods/metamethods support
 - Because you can convert make conversions between different sizes of arrays via swizzling, mani requires to specify the conversions via `SwizzleTypes`, while also exporting every type defined in there. This is a bit of a headache, and I'm hoping to find a better solution to this
 - Distinct types not yet supported, because distinct and swizzling works rather weird in odin aswell
@@ -168,8 +172,27 @@ local v2 = v.xz -- v2 is of type Vec2
 v2.xy = v.zz 
 ```
 
-### LSP Code Completion
-![](media/intellisense.gif)
+### Calling Lua from Odin
+- `LuaImport` can be used to link a global function to odin. 
+- The wrapper code generated is available under the name `_mani_<your proc name>`. It accepts the same parameters and return values
+- Calling the wrapper procedure will call the lua function.
+- `GlobalSymbol` is optional. If not specified, the wrapper code will just generate the Lua C API calls required to call any function on the top of the lua stack, with the parameters and results provided. This will require you to be familiar with how the C API works, so use with caution.
+```odin 
+@(LuaImport = {
+    GlobalSymbol = "Update",
+})
+update :: proc(dt: f64) -> (int, int) { 
+    val1, val2 := _mani_update(dt)
+    // do some for processing
+    return val1, val2 
+}
+```
+```lua
+-- lua
+function Update(dt) 
+    return 1, 2
+end
+```
 
 ## Getting Started
 - Download [odin-lua](https://github.com/DragosPopse/odin-lua)
