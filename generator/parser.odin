@@ -469,7 +469,7 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
     result.type = root.src[procType.pos.offset : procType.end.offset]
     switch conv in procType.calling_convention {
         case string: {
-            result.calling_convention = conv
+            result.calling_convention = strings.trim(conv, `"`)
         }
 
         case ast.Proc_Calling_Convention_Extra: {
