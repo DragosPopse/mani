@@ -42,7 +42,7 @@ make_object :: proc(v: int) -> (result: HalfObject) {
 }
 
 @(LuaExport)
-mod_object :: proc(o: ^HalfObject, v: int) {
+mod_object :: proc "odin" (o: ^HalfObject, v: int) {
     o.value = v
 }
 
