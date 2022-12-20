@@ -11,7 +11,6 @@ import intr "core:intrinsics"
 import filepath "core:path/filepath"
 
 
-import odin "core:odin"
 import ast "core:odin/ast"
 import parser "core:odin/parser"
 import tokenizer "core:odin/tokenizer"
@@ -63,10 +62,12 @@ main :: proc() {
     delete(dirQueue)
 
     for pkg, file in &config.files {
+        when os.OS != .Windows { fperms := 0o666 }
+        when os.OS == .Windows { fperms := 0 }
         {
             sb := &file.builder
             str := strings.to_string(sb^)
-            fd, err := os.open(file.filename, os.O_CREATE | os.O_WRONLY | os.O_TRUNC)
+            fd, err := os.open(file.filename, os.O_CREATE | os.O_WRONLY | os.O_TRUNC, fperms)
             if err != os.ERROR_NONE {
                 fmt.printf("Failed to open %s\n", file.lua_filename)
             } 
@@ -77,7 +78,7 @@ main :: proc() {
         {
             sb := &file.lua_builder
             str := strings.to_string(sb^)
-            fd, err := os.open(file.lua_filename, os.O_CREATE | os.O_WRONLY | os.O_TRUNC)
+            fd, err := os.open(file.lua_filename, os.O_CREATE | os.O_WRONLY | os.O_TRUNC, fperms)
             if err != os.ERROR_NONE {
                 fmt.printf("Failed to open %s\n", file.lua_filename)
             }
