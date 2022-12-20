@@ -9,7 +9,17 @@ import "core:fmt"
 import "core:strings"
 import "core:c"
 
-push_value :: proc(L: ^lua.State, val: $T) {
+assert_contextless :: proc(condition: bool, message := "", loc := #caller_location) {
+	if !condition {
+		@(cold)
+		internal :: proc(message: string, loc: rt.Source_Code_Location) {
+		    rt.default_assertion_failure_proc("runtime assertion", message, loc)
+		}
+		internal(message, loc)
+	}
+}
+
+push_value :: proc "contextless"(L: ^lua.State, val: $T) {
     //#assert(!intr.type_is_pointer(T), "Pointers are not supported in push_value")
     when intr.type_is_integer(T) {
         lua.pushinteger(L, cast(lua.Integer)val) // Note(Dragos): Should this be casted implicitly? I think not
@@ -25,7 +35,7 @@ push_value :: proc(L: ^lua.State, val: $T) {
         lua.pushcfunction(L, val)
     } else when intr.type_is_struct(T) || intr.type_is_pointer(T) || intr.type_is_array(T) {
         metatableStr, found := global_state.udata_metatable_mapping[T]
-        assert(found, fmt.tprintf("Metatable for %T was not found. Did you mark it with @(LuaExport)?", val))
+        assert_contextless(found, "Metatable not found for type. Did you mark it with @(LuaExport)?")
         udata := transmute(^T)lua.newuserdata(L, size_of(T))
         udata^ = val
         luaL.getmetatable(L, metatableStr)
@@ -35,7 +45,7 @@ push_value :: proc(L: ^lua.State, val: $T) {
     }
 }
 
-to_value :: proc(L: ^lua.State, #any_int stack_pos: int, val: ^$T) {
+to_value :: proc "contextless"(L: ^lua.State, #any_int stack_pos: int, val: ^$T) {
     when intr.type_is_pointer(type_of(val^)) {
         Base :: type_of(val^^)
         Ptr :: type_of(val^)
@@ -58,7 +68,7 @@ to_value :: proc(L: ^lua.State, #any_int stack_pos: int, val: ^$T) {
     } else {
         fmeta, hasFulldata := global_state.udata_metatable_mapping[Base]
         lmeta, hasLightdata := global_state.udata_metatable_mapping[Ptr]
-        assert(hasFulldata || hasLightdata, "Metatable not found for type")
+        assert_contextless(hasFulldata || hasLightdata, "Metatable not found for type")
 
         rawdata: rawptr
     
