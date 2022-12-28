@@ -8,6 +8,7 @@ import rt "core:runtime"
 import "core:fmt"
 import "core:strings"
 import "core:c"
+import "core:mem"
 
 assert_contextless :: proc(condition: bool, message := "", loc := #caller_location) {
 	if !condition {
@@ -62,7 +63,9 @@ to_value :: proc "contextless"(L: ^lua.State, #any_int stack_pos: int, val: ^$T)
     } else when intr.type_is_boolean(Base) {
         val^ = cast(Base)luaL.checkboolean(L, cast(i32)stack_pos) 
     } else when Base == cstring {
-        val^ = strings.unsafe_string_to_cstring(lua.checkstring(L, cast(i32)stack_pos)) // we know its a cstring
+        str := luaL.checkstring(L, cast(i32)stack_pos)
+        raw := transmute(mem.Raw_String)str
+        val^ = cstring(raw.data)
     } else when Base == string {
         val^ = luaL.checkstring(L, cast(i32)stack_pos)
     } else {
