@@ -10,14 +10,17 @@ import "core:strings"
 import "core:c"
 import "core:mem"
 
-assert_contextless :: proc(condition: bool, message := "", loc := #caller_location) {
-	if !condition {
-		@(cold)
-		internal :: proc(message: string, loc: rt.Source_Code_Location) {
-		    rt.default_assertion_failure_proc("runtime assertion", message, loc)
-		}
-		internal(message, loc)
-	}
+assert_contextless :: proc "contextless" (condition: bool, message := "", loc := #caller_location) {
+    if !condition {
+        rt.print_caller_location(loc)
+        rt.print_string(" ")
+        rt.print_string("runtime assertion")
+        if len(message) > 0 {
+            rt.print_string(": ")
+            rt.print_string(message)
+        }
+        rt.print_byte('\n')
+    }
 }
 
 push_value :: proc "contextless"(L: ^lua.State, val: $T) {
