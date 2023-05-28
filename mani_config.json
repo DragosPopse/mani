@@ -1,7 +1,7 @@
 {
     "dir": "test",
     "meta_dir": "test",
-    "odin_ext": ".generated.odin",
+    "odin_ext": ".mani.odin",
     "lua_ext": ".lsp.lua",
     "types": {
         "integer": [

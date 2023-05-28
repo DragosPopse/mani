@@ -13,12 +13,12 @@
 !foreign/**
 !test/**
 
-!/generator/**
-!shared/**
+!manigen/**
+!mani/**
 !media/**
 
 # Mani generations
-*.generated.odin
+*.mani.odin
 *.lsp.lua
 
 !copy_to_shared.bat
