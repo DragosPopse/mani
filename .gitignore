@@ -19,6 +19,8 @@
 
 !manigen2/**
 
+!odin-build
+
 # Mani generations
 *.mani.odin
 *.lsp.lua
