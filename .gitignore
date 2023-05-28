@@ -17,6 +17,8 @@
 !mani/**
 !media/**
 
+!manigen2/**
+
 # Mani generations
 *.mani.odin
 *.lsp.lua
