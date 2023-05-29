@@ -20,6 +20,7 @@
 !manigen2/**
 
 !odin-build
+!odin-lua
 
 # Mani generations
 *.mani.odin

@@ -1,7 +1,10 @@
 package mani
 
+// This "shared" thing not really nice. Maybe make odin-lua a submodule of mani
+// That way we can have "mani:mani" "mani:lua" "mani:luaL"
 import lua "shared:lua"
 import luaL "shared:luaL"
+
 import intr "core:intrinsics"
 import refl "core:reflect"
 import rt "core:runtime"
