@@ -5,6 +5,7 @@ import parser "core:odin/parser"
 import tokenizer "core:odin/tokenizer"
 import "core:strings"
 import "core:fmt"
+import "core:strconv"
 
 BUILTIN_ATTRIBUTES := [?]string {
     "private",
@@ -74,6 +75,7 @@ Array :: struct {
 
 Symbol :: struct {
     attribs: Attribute_Map,
+    is_distinct: bool,
     var: union {
         Struct,
         Proc,
@@ -91,6 +93,35 @@ Parser :: struct {
     symbols: map[string]Symbol,
 }
 
+print_parser_data :: proc(p: ^Parser) {
+    for name, symbol in p.symbols {
+        fmt.printf("Symbol: %v\n", name)
+        fmt.printf("distinct: %v\n", symbol.is_distinct)
+        fmt.printf("Attribs: %v\n", symbol.attribs)
+        switch var in symbol.var {
+            case Struct: {
+                fmt.printf("Variant: Struct\n")
+                fmt.printf("Fields: %v\n", var.fields)
+            }
+
+            case Proc: {
+                fmt.printf("Variant: Proc\n")
+                fmt.printf("Type: %v\n", var.type)
+                fmt.printf("Params: %v\n", var.params)
+                fmt.printf("Results: %v\n", var.results)
+            }
+
+            case Array: {
+                fmt.printf("Variant: Array\n")
+                fmt.printf("Length: %v\n", var.len)
+                fmt.printf("Value Type: %v\n", var.value_type)
+            }
+        }
+
+        fmt.printf("\n")
+    }
+}
+
 parser_init :: proc(p: ^Parser, allowed_attributes: []string) {
     p.parser = parser.default_parser()
     for attrib in allowed_attributes {
@@ -103,7 +134,7 @@ parser_init :: proc(p: ^Parser, allowed_attributes: []string) {
         p.allowed_attributes[key] = true
     }
 
-    p.collections["core"] = fmt.aprintf("%s/core\n", ODIN_ROOT)
+    p.collections["core"] = fmt.aprintf("%s/core", ODIN_ROOT)
 }
 
 is_attribute_valid :: #force_inline proc(p: ^Parser, attrib: string) -> (valid: bool) {
@@ -197,14 +228,14 @@ parse_attrib_val :: proc(root: ^ast.File, elem: ^ast.Expr) -> (result: Attribute
 
         case ^ast.Ident: {
             //result = cast(Identifier)x.name
-            //fmt.printf("We shouldn't be an identifier %s\n", x.name)
+            fmt.printf("We shouldn't be an identifier %s\n", x.name)
             return nil
         }
 
         case ^ast.Comp_Lit: {
             //result = parse_attrib_object(root, x)
             fmt.printf("We shouldn't be in comp literal %v\n", x)
-            return
+            return nil
         }
     }
     return nil
@@ -246,4 +277,145 @@ parse_package :: proc(p: ^Parser, path: string) {
             }
         }
     }
+}
+
+parse_array :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, arr_decl: ^ast.Array_Type) -> (result: Array, name: string) {
+    //result.attribs = parse_attributes(root, value_decl)
+
+    name = value_decl.names[0].derived.(^ast.Ident).name
+    result.value_type = arr_decl.elem.derived.(^ast.Ident).name
+    lenLit := arr_decl.len.derived.(^ast.Basic_Lit)
+    lenStr := root.src[lenLit.pos.offset : lenLit.end.offset]
+    result.len, _ = strconv.parse_int(lenStr)
+    
+    return
+}
+
+parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: ^ast.Struct_Type) -> (result: Struct, name: string) {
+    //result.attribs = parse_attributes(root, value_decl)
+
+    name = value_decl.names[0].derived.(^ast.Ident).name
+    //result.fields = make(map[string]Field) 
+    
+    for field in struct_decl.fields.list {
+        
+        fType: string
+        #partial switch x in field.type.derived {
+            case ^ast.Ident: {
+                fType = x.name
+            }
+            case ^ast.Selector_Expr: { // What was this again?
+                fType = root.src[x.pos.offset : x.end.offset] //godlike odin
+            }
+            case ^ast.Pointer_Type: {
+                fType = root.src[x.pos.offset : x.end.offset]
+            }
+        }
+        for name in field.names {
+            fName := name.derived.(^ast.Ident).name 
+            append(&result.fields, Field {
+                name = fName,
+                type = fType,
+            })
+        }
+        
+    }
+
+    return
+}
+
+
+parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.Proc_Lit) -> (result: Proc, name: string) {
+ 
+    //result.properties, err = parse_properties(root, value_decl)
+    //result.attribs = parse_attributes(root, value_decl)
+  
+    v := proc_lit
+    procType := v.type
+    declName := value_decl.names[0].derived.(^ast.Ident).name // Note(Dragos): Does this work with 'a, b: int' ?????
+
+    name = declName
+    result.type = root.src[procType.pos.offset : procType.end.offset]
+    switch conv in procType.calling_convention {
+        case string: {
+            result.calling_convention = strings.trim(conv, `"`)
+        }
+
+        case ast.Proc_Calling_Convention_Extra: {
+            result.calling_convention = "c" //not fully correct
+        }
+
+        case: { // nil, default calling convention
+            result.calling_convention = "odin"
+        }
+    }
+    // Note(Dragos): these should be checked for 0
+    
+    
+    result.params = make(type_of(result.params))
+    result.results = make(type_of(result.results))
+    // Get parameters
+    if procType.params != nil {
+        
+        for param, i in procType.params.list {
+            paramType: string
+            #partial switch x in param.type.derived {
+                case ^ast.Ident: {
+                    paramType = x.name
+                }
+                case ^ast.Selector_Expr: {
+                    paramType = root.src[x.pos.offset : x.end.offset] //godlike odin
+                }
+                case ^ast.Pointer_Type: {
+                    paramType = root.src[x.pos.offset : x.end.offset]
+                }
+            }
+
+            for name in param.names {
+                append(&result.params, Field{
+                    name = name.derived.(^ast.Ident).name, 
+                    type = paramType,
+                })
+            }         
+        }
+    }
+    
+    // Get results
+    if procType.results != nil {
+        for rval, i in procType.results.list {
+            resName: string
+            resType: string
+            #partial switch x in rval.type.derived {
+                case ^ast.Ident: {
+                    resType = x.name
+                    if len(rval.names) != 0 {
+                        resName = rval.names[0].derived.(^ast.Ident).name
+                    }
+                }
+                case ^ast.Selector_Expr: {
+                    if len(rval.names) != 0 {
+                        resName = rval.names[0].derived.(^ast.Ident).name
+                    }
+                    resType = root.src[x.pos.offset : x.end.offset] //godlike odin
+                }
+            }
+            if len(rval.names) == 0 || resName == resType {
+                // Result name is not specified
+                sb := strings.builder_make(context.temp_allocator)
+                strings.write_string(&sb, "mani_result")
+                strings.write_int(&sb, i)
+                resName = strings.to_string(sb)
+            }
+            
+    
+
+            append(&result.results, Field{
+                name = resName, 
+                type = resType,
+            })
+        }
+    }
+
+    
+    return
 }

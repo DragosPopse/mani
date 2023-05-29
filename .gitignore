@@ -18,6 +18,7 @@
 !media/**
 
 !manigen2/**
+!build/**
 
 !odin-build
 !odin-lua

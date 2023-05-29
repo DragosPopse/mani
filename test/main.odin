@@ -32,6 +32,9 @@ HalfObject :: struct {
     hidden: int,
 }
 
+@(LuaExport)
+Distinct_Object :: distinct HalfObject
+
 
 @(LuaExport)
 make_object :: proc(v: int) -> (result: HalfObject) {
