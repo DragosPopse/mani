@@ -24,6 +24,10 @@ import "attriparse"
 
 
 main :: proc() {
-    
+    fmt.printf("Started mani\n")
+    p: attriparse.Parser
+    attriparse.parser_init(&p, {}) // We aren't using this yet
+    attriparse.parse_package(&p, "./test")
+    attriparse.print_parser_data(&p)
 }
 

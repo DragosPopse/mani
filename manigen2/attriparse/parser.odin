@@ -279,21 +279,21 @@ parse_package :: proc(p: ^Parser, path: string) {
     }
 }
 
-parse_array :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, arr_decl: ^ast.Array_Type) -> (result: Array, name: string) {
-    //result.attribs = parse_attributes(root, value_decl)
-
+parse_array :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, arr_decl: ^ast.Array_Type) -> (result: Symbol, name: string) {
+    result.attribs = parse_attributes(root, value_decl)
+    var_array := &result.var.(Array)
     name = value_decl.names[0].derived.(^ast.Ident).name
-    result.value_type = arr_decl.elem.derived.(^ast.Ident).name
+    var_array.value_type = arr_decl.elem.derived.(^ast.Ident).name
     lenLit := arr_decl.len.derived.(^ast.Basic_Lit)
     lenStr := root.src[lenLit.pos.offset : lenLit.end.offset]
-    result.len, _ = strconv.parse_int(lenStr)
+    var_array.len, _ = strconv.parse_int(lenStr)
     
     return
 }
 
-parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: ^ast.Struct_Type) -> (result: Struct, name: string) {
-    //result.attribs = parse_attributes(root, value_decl)
-
+parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: ^ast.Struct_Type) -> (result: Symbol, name: string) {
+    result.attribs = parse_attributes(root, value_decl)
+    var_struct := &result.var.(Struct)
     name = value_decl.names[0].derived.(^ast.Ident).name
     //result.fields = make(map[string]Field) 
     
@@ -313,7 +313,7 @@ parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: 
         }
         for name in field.names {
             fName := name.derived.(^ast.Ident).name 
-            append(&result.fields, Field {
+            append(&var_struct.fields, Field {
                 name = fName,
                 type = fType,
             })
@@ -325,35 +325,35 @@ parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: 
 }
 
 
-parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.Proc_Lit) -> (result: Proc, name: string) {
+parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.Proc_Lit) -> (result: Symbol, name: string) {
  
     //result.properties, err = parse_properties(root, value_decl)
-    //result.attribs = parse_attributes(root, value_decl)
-  
+    result.attribs = parse_attributes(root, value_decl)
+    var_proc := &result.var.(Proc)
     v := proc_lit
     procType := v.type
     declName := value_decl.names[0].derived.(^ast.Ident).name // Note(Dragos): Does this work with 'a, b: int' ?????
 
     name = declName
-    result.type = root.src[procType.pos.offset : procType.end.offset]
+    var_proc.type = root.src[procType.pos.offset : procType.end.offset]
     switch conv in procType.calling_convention {
         case string: {
-            result.calling_convention = strings.trim(conv, `"`)
+            var_proc.calling_convention = strings.trim(conv, `"`)
         }
 
         case ast.Proc_Calling_Convention_Extra: {
-            result.calling_convention = "c" //not fully correct
+            var_proc.calling_convention = "c" //not fully correct
         }
 
         case: { // nil, default calling convention
-            result.calling_convention = "odin"
+            var_proc.calling_convention = "odin"
         }
     }
     // Note(Dragos): these should be checked for 0
     
     
-    result.params = make(type_of(result.params))
-    result.results = make(type_of(result.results))
+    var_proc.params = make(type_of(var_proc.params))
+    var_proc.results = make(type_of(var_proc.results))
     // Get parameters
     if procType.params != nil {
         
@@ -372,7 +372,7 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
             }
 
             for name in param.names {
-                append(&result.params, Field{
+                append(&var_proc.params, Field{
                     name = name.derived.(^ast.Ident).name, 
                     type = paramType,
                 })
@@ -409,7 +409,7 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
             
     
 
-            append(&result.results, Field{
+            append(&var_proc.results, Field{
                 name = resName, 
                 type = resType,
             })
