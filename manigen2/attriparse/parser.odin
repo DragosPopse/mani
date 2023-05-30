@@ -259,19 +259,22 @@ parse_package :: proc(p: ^Parser, path: string) {
 
                 #partial switch value in value_decl.values[0].derived {
                     case ^ast.Distinct_Type: { // This needs to be sorted out
-
+                        
                     }
 
                     case ^ast.Proc_Lit: {
-
+                        symbol, name := parse_proc(root, value_decl, value)
+                        p.symbols[name] = symbol
                     }
 
                     case ^ast.Struct_Type: {
-
+                        symbol, name := parse_struct(root, value_decl, value)
+                        p.symbols[name] = symbol
                     }
 
                     case ^ast.Array_Type: {
-
+                        symbol, name := parse_array(root, value_decl, value)
+                        p.symbols[name] = symbol
                     }
                 }
             }
@@ -281,6 +284,7 @@ parse_package :: proc(p: ^Parser, path: string) {
 
 parse_array :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, arr_decl: ^ast.Array_Type) -> (result: Symbol, name: string) {
     result.attribs = parse_attributes(root, value_decl)
+    result.var = Array{}
     var_array := &result.var.(Array)
     name = value_decl.names[0].derived.(^ast.Ident).name
     var_array.value_type = arr_decl.elem.derived.(^ast.Ident).name
@@ -293,6 +297,7 @@ parse_array :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, arr_decl: ^ast
 
 parse_struct :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, struct_decl: ^ast.Struct_Type) -> (result: Symbol, name: string) {
     result.attribs = parse_attributes(root, value_decl)
+    result.var = Struct{}
     var_struct := &result.var.(Struct)
     name = value_decl.names[0].derived.(^ast.Ident).name
     //result.fields = make(map[string]Field) 
@@ -329,6 +334,7 @@ parse_proc :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, proc_lit: ^ast.
  
     //result.properties, err = parse_properties(root, value_decl)
     result.attribs = parse_attributes(root, value_decl)
+    result.var = Proc{}
     var_proc := &result.var.(Proc)
     v := proc_lit
     procType := v.type
