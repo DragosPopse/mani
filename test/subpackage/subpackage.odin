@@ -1,5 +1,9 @@
-package subpackage
+package subpackage_test
 
-proc_test :: proc(var1: int, var2: f32) -> (result: f32) {
+Sub_Struct :: struct {
+    
+}
+
+proc_test :: proc(var1: int, var2: Sub_Struct) -> (result: f32) {
     return
 }

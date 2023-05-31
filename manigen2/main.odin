@@ -19,15 +19,17 @@ import "core:log"
 
 import "core:time"
 
-import "attriparse"
+import "codegen"
 
 
 
 main :: proc() {
     fmt.printf("Started mani\n")
-    p: attriparse.Parser
-    attriparse.parser_init(&p, {}) // We aren't using this yet
-    attriparse.parse_package(&p, "./test")
-    attriparse.print_parser_data(&p)
+    
+    program: codegen.Program
+    program.collections["core"] = filepath.join({ODIN_ROOT, "core"})
+    codegen.parse_program(&program, "./test")
+    
+    codegen.print_program_data(&program)
 }
 

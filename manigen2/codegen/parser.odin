@@ -89,6 +89,7 @@ Symbol :: struct {
         Proc,
         Array,
         External_Symbol, // This might not be needed
+        // A symbol can also be a primitive
     },
 }
 
@@ -96,26 +97,37 @@ Symbol :: struct {
 Attribute_Map :: distinct map[string]Attribute_Value
 
 Program :: struct {
-    root_pkg: ^Package,
+    root_pkg: ^ast.Package,
     parser: parser.Parser,
     collections: map[string]string,
-    pkgs: map[string]^Package,
+    pkgs: map[string]^ast.Package,
     symbols: map[string]Symbol,
 }
 
-_parse_package :: proc(p: ^Program, path: string) -> (pkg: ^ast.Package) {
-    pkg_collected: bool
-    path := make_import_path()
-    pkg, pkg_collected = parser.collect_package(path)
+// Parse all imports first as packages, do it recursively no?
+parse_package :: proc(p: ^Program, path: string) {
+    fmt.printf("Trying to parse path: %v\n", path)
+    path := make_import_path(p, path)
+    fmt.printf("Making import path %v\n", path)
+    pkg, pkg_collected := parser.collect_package(path)
+
     assert(pkg_collected, "Package collection failed.")
-    parser.parse_package(pkg, &p.parser)
+    pkg_parsed := parser.parse_package(pkg, &p.parser)
+    fmt.assertf(pkg_parsed, "Failed to parse package at path %v\n", pkg.fullpath)
+    if pkg.name in p.pkgs {
+        return // already parsed
+    }
+    p.pkgs[pkg.name] = pkg
+    fmt.printf("Found package %v\n", pkg.name)
     for filename, file in pkg.files {
         root := file
         for decl, index in root.decls {
             #partial switch derived in decl.derived {
                 case ^ast.Import_Decl: {
                     import_name: string
+                    parse_package(p, strings.trim(derived.fullpath, "\""))
                     import_text := root.src[derived.pos.offset : derived.end.offset]
+                    
                     if derived.name.kind != .Invalid {
                         // got a name
                         import_name = derived.name.text
@@ -133,63 +145,23 @@ _parse_package :: proc(p: ^Program, path: string) -> (pkg: ^ast.Package) {
                         import_name = split[len(split) - 1]
                         import_name = strings.trim(import_name, "\"")
                     }
-                    p.imports_alias_path_mapping[import_name] = derived.fullpath
-                }
-            }
-            if value_decl, is_value_decl := decl.derived.(^ast.Value_Decl); is_value_decl {
-                if len(value_decl.attributes) < 1 do continue
-
-                #partial switch value in value_decl.values[0].derived {
-                    case ^ast.Distinct_Type: { // This needs to be sorted out
-                        
-                    }
-
-                    case ^ast.Proc_Lit: {
-                        symbol, name := parse_proc(root, value_decl, value)
-                        p.symbols[name] = symbol
-                    }
-
-                    case ^ast.Struct_Type: {
-                        symbol, name := parse_struct(root, value_decl, value)
-                        p.symbols[name] = symbol
-                    }
-
-                    case ^ast.Array_Type: {
-                        symbol, name := parse_array(root, value_decl, value)
-                        p.symbols[name] = symbol
-                    }
-
-                    case ^ast.Selector_Expr: { // Expecting a package
-                        symbol, name := parse_external_symbol(p, root, value_decl, value)
-                        p.symbols[name] = symbol
-                    }
                 }
             }
         }
     }
 }
 
-parse_program :: proc(root_path: string) -> (program: Program) {
-    program.parser = parser.default_parser() 
-    return program
+parse_program :: proc(program: ^Program, root_path: string) {
+    program.parser = parser.default_parser({.Optional_Semicolons, .Allow_Reserved_Package_Name}) 
+    parse_package(program, root_path)
 }
 
-Parser :: struct {
-    parser: parser.Parser,
-    src_pkg: ^ast.Package,
-    src_path: string,
-    collections: map[string]string,
-    allowed_attributes: map[string]bool,
-    symbols: map[string]Symbol,
-    imports_alias_path_mapping: map[string]string, // alias, path
-    parsed_packages: map[string]^ast.Package,
-}
-
-make_import_path :: proc(p: ^Parser, path: string, allocator := context.allocator) -> (result: string) {
+make_import_path :: proc(p: ^Program, path: string, allocator := context.allocator) -> (result: string) {
     parts := strings.split(path, ":", context.temp_allocator)
     collection_path := "./"
     pkg_path := ""
     if len(parts) == 2 { // we have a collection thing
+        assert(parts[0] in p.collections, "Collection not found.")
         collection_path = p.collections[parts[0]]
         pkg_path = parts[1]
     } else {
@@ -198,7 +170,12 @@ make_import_path :: proc(p: ^Parser, path: string, allocator := context.allocato
     return filepath.join({collection_path, pkg_path}, allocator)
 }
 
-print_parser_data :: proc(p: ^Parser) {
+print_program_data :: proc(p: ^Program) {
+    fmt.printf("Packages:\n")
+    for name, pkg in p.pkgs {
+        fmt.printf("%v\n", name)
+    }
+    fmt.printf("\n")
     for name, symbol in p.symbols {
         fmt.printf("Symbol: %v\n", name)
         fmt.printf("distinct: %v\n", symbol.is_distinct)
@@ -231,25 +208,6 @@ print_parser_data :: proc(p: ^Parser) {
 
         fmt.printf("\n")
     }
-}
-
-parser_init :: proc(p: ^Parser, allowed_attributes: []string) {
-    p.parser = parser.default_parser()
-    for attrib in allowed_attributes {
-        key := strings.clone(attrib)
-        p.allowed_attributes[key] = true
-    }
-
-    for attrib in BUILTIN_ATTRIBUTES {
-        key := strings.clone(attrib)
-        p.allowed_attributes[key] = true
-    }
-
-    p.collections["core"] = fmt.aprintf("%s/core", ODIN_ROOT)
-}
-
-is_attribute_valid :: #force_inline proc(p: ^Parser, attrib: string) -> (valid: bool) {
-    return attrib in p.allowed_attributes
 }
 
 parse_attributes :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl) -> (result: Attribute_Map) {
@@ -353,83 +311,14 @@ parse_attrib_val :: proc(root: ^ast.File, elem: ^ast.Expr) -> (result: Attribute
     return nil
 }
 
-lazy_parse_external_symbol :: proc(p: ^Parser, symbol: ^Symbol) {
-
-}
-
-parse_package :: proc(p: ^Parser, path: string) {
-    p.src_path = path
-    pkg_collected: bool
-    p.src_pkg, pkg_collected = parser.collect_package(path)
-    assert(pkg_collected, "Package collection failed.")
-    parser.parse_package(p.src_pkg, &p.parser)
-    for filename, file in p.src_pkg.files {
-        root := file
-        for decl, index in root.decls {
-            #partial switch derived in decl.derived {
-                case ^ast.Import_Decl: {
-                    import_name: string
-                    import_text := root.src[derived.pos.offset : derived.end.offset]
-                    if derived.name.kind != .Invalid {
-                        // got a name
-                        import_name = derived.name.text
-                    } else {
-                        // Take the name from the path
-                        start_pos := 0
-                        for c, i in derived.fullpath {
-                            if c == ':' {
-                                start_pos = i + 1
-                                break
-                            }
-                        }
-                        // Use the last folder
-                        split := strings.split(derived.fullpath[start_pos:], "/", context.temp_allocator)
-                        import_name = split[len(split) - 1]
-                        import_name = strings.trim(import_name, "\"")
-                    }
-                    p.imports_alias_path_mapping[import_name] = derived.fullpath
-                }
-            }
-            if value_decl, is_value_decl := decl.derived.(^ast.Value_Decl); is_value_decl {
-                if len(value_decl.attributes) < 1 do continue
-
-                #partial switch value in value_decl.values[0].derived {
-                    case ^ast.Distinct_Type: { // This needs to be sorted out
-                        
-                    }
-
-                    case ^ast.Proc_Lit: {
-                        symbol, name := parse_proc(root, value_decl, value)
-                        p.symbols[name] = symbol
-                    }
-
-                    case ^ast.Struct_Type: {
-                        symbol, name := parse_struct(root, value_decl, value)
-                        p.symbols[name] = symbol
-                    }
-
-                    case ^ast.Array_Type: {
-                        symbol, name := parse_array(root, value_decl, value)
-                        p.symbols[name] = symbol
-                    }
-
-                    case ^ast.Selector_Expr: { // Expecting a package
-                        symbol, name := parse_external_symbol(p, root, value_decl, value)
-                        p.symbols[name] = symbol
-                    }
-                }
-            }
-        }
-    }
-}
-
-parse_external_symbol :: proc(p: ^Parser, root: ^ast.File, value_decl: ^ast.Value_Decl, ext_decl: ^ast.Selector_Expr) -> (result: Symbol, name: string) {
+// This needs to be remade
+parse_external_symbol :: proc(p: ^Program, root: ^ast.File, value_decl: ^ast.Value_Decl, ext_decl: ^ast.Selector_Expr) -> (result: Symbol, name: string) {
     result.attribs = parse_attributes(root, value_decl)
     result.var = External_Symbol{}
     var_external := &result.var.(External_Symbol)
     name = value_decl.names[0].derived.(^ast.Ident).name
     pkg := ext_decl.expr.derived.(^ast.Ident).name
-    var_external.pkg_path = p.imports_alias_path_mapping[pkg]
+    //var_external.pkg_path = p.imports_alias_path_mapping[pkg]
      // This might crash in some conditions
      // This is also a bit weird... We'll need to test further
     var_external.ident = root.src[ext_decl.op.pos.offset + 1 : ext_decl.expr_base.end.offset]
