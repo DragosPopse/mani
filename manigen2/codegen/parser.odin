@@ -74,12 +74,10 @@ Array :: struct {
     value_type: string,
 }
 
-External_Symbol :: struct {
-    pkg_path: string,
-    ident: string,
-    pkg: string, // lazily evaluated
+Package :: struct {
+    using pkg: ^ast.Package,
+    path_to_import: string, // Path that can be used relative to the Program being parsed
 }
-
 
 Symbol :: struct {
     attribs: Attribute_Map,
@@ -88,8 +86,6 @@ Symbol :: struct {
         Struct,
         Proc,
         Array,
-        External_Symbol, // This might not be needed
-        // A symbol can also be a primitive
     },
 }
 
@@ -100,32 +96,35 @@ Program :: struct {
     root_pkg: ^ast.Package,
     parser: parser.Parser,
     collections: map[string]string,
-    pkgs: map[string]^ast.Package,
-    symbols: map[string]Symbol,
+    pkgs: map[string]Package,
+    symbols: map[string]Symbol, // All symbols in the program. Should be formated as pkg.name
+    anon_symbols: [dynamic]Symbol, // You can add attributes to things that are unnamed, so we should store them aswell. Only top level package?
 }
 
 // Parse all imports first as packages, do it recursively no?
-parse_package :: proc(p: ^Program, path: string) {
+parse_package :: proc(p: ^Program, path: string) -> (result: Package) {
     fmt.printf("Trying to parse path: %v\n", path)
     path := make_import_path(p, path)
     fmt.printf("Making import path %v\n", path)
-    pkg, pkg_collected := parser.collect_package(path)
+    pkg_collected: bool
+    result.pkg, pkg_collected = parser.collect_package(path) // Todo(Dragos): This needs to be rewritten to accept a ban list
 
     assert(pkg_collected, "Package collection failed.")
-    pkg_parsed := parser.parse_package(pkg, &p.parser)
-    fmt.assertf(pkg_parsed, "Failed to parse package at path %v\n", pkg.fullpath)
-    if pkg.name in p.pkgs {
-        return // already parsed
+    pkg_parsed := parser.parse_package(result.pkg, &p.parser)
+    fmt.assertf(pkg_parsed, "Failed to parse package at path %v\n", result.fullpath)
+    if result.name in p.pkgs {
+        return p.pkgs[result.name]
     }
-    p.pkgs[pkg.name] = pkg
-    fmt.printf("Found package %v\n", pkg.name)
-    for filename, file in pkg.files {
+    p.pkgs[result.name] = result
+    fmt.printf("Found package %v\n", result.name)
+    for filename, file in result.files {
         root := file
+        import_pkg_names: map[string]string // map[alias] = pkg.name. Temporary map made for each file
         for decl, index in root.decls {
             #partial switch derived in decl.derived {
                 case ^ast.Import_Decl: {
                     import_name: string
-                    parse_package(p, strings.trim(derived.fullpath, "\""))
+                    pkg := parse_package(p, strings.trim(derived.fullpath, "\""))
                     import_text := root.src[derived.pos.offset : derived.end.offset]
                     
                     if derived.name.kind != .Invalid {
@@ -144,11 +143,14 @@ parse_package :: proc(p: ^Program, path: string) {
                         split := strings.split(derived.fullpath[start_pos:], "/", context.temp_allocator)
                         import_name = split[len(split) - 1]
                         import_name = strings.trim(import_name, "\"")
+                        import_pkg_names[import_name] = pkg.name
                     }
                 }
             }
         }
     }
+
+    return
 }
 
 parse_program :: proc(program: ^Program, root_path: string) {
@@ -197,12 +199,6 @@ print_program_data :: proc(p: ^Program) {
                 fmt.printf("Variant: Array\n")
                 fmt.printf("Length: %v\n", var.len)
                 fmt.printf("Value Type: %v\n", var.value_type)
-            }
-
-            case External_Symbol: {
-                fmt.printf("Variant: External Symbol\n")
-                fmt.printf("Package: %v\n", var.pkg_path)
-                fmt.printf("Identifier: %v\n", var.ident)
             }
         }
 
@@ -312,6 +308,7 @@ parse_attrib_val :: proc(root: ^ast.File, elem: ^ast.Expr) -> (result: Attribute
 }
 
 // This needs to be remade
+/*
 parse_external_symbol :: proc(p: ^Program, root: ^ast.File, value_decl: ^ast.Value_Decl, ext_decl: ^ast.Selector_Expr) -> (result: Symbol, name: string) {
     result.attribs = parse_attributes(root, value_decl)
     result.var = External_Symbol{}
@@ -326,6 +323,7 @@ parse_external_symbol :: proc(p: ^Program, root: ^ast.File, value_decl: ^ast.Val
     
     return
 }
+*/
 
 parse_array :: proc(root: ^ast.File, value_decl: ^ast.Value_Decl, arr_decl: ^ast.Array_Type) -> (result: Symbol, name: string) {
     result.attribs = parse_attributes(root, value_decl)
